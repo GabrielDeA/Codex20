@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Codex20.Ingestion": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\deant\\Documentos\\FURB\\TCC\\Workspace\\TestesC#\\TestesC#\\Data\\livroDoJogador-76-87.pdf"
+    }
+  },
+  "$schema": "https://json.schemastore.org/launchsettings.json"
+}
