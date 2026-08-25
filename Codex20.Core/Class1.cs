@@ -1,4 +1,4 @@
-﻿namespace Codes20.Core
+﻿namespace Codex20.Core
 {
     public class Class1
     {

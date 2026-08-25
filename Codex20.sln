@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.9.12112.369
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codes20.Core", "Codes20.Core\Codes20.Core.csproj", "{58F17BF8-BE4D-451C-8605-C21FABD48BFD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex20.Core", "Codex20.Core\Codex20.Core.csproj", "{58F17BF8-BE4D-451C-8605-C21FABD48BFD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex20.Ingestion", "Codex20.Ingestion\Codex20.Ingestion.csproj", "{6F451541-A4AE-456B-8F2E-30AE8BF8421B}"
 EndProject

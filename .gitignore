@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Codex20.Ingestion: PDFs de origem e resultados gerados localmente
+Codex20.Ingestion/Data/
