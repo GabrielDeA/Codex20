@@ -2229,15 +2229,8 @@ a dança novamente até ter terminado um descanso curto. Quando
 o elemental voltar ao Plano Elemental do Ar, qualquer aarakocra a
 até 1,5 metro dele pode retornar com ele.
 
-
-<figure>
-<figcaption>AARAKOCRA Humanoide Médio (aarakocra), neutro e bom</figcaption>
-
-GAB
-
-</figure>
-
-
+AARAKOCRA
+Humanoide Médio (aarakocra), neutro e bom
 Classe de Armadura 12
 Pontos de Vida 13 (3d8)
 Deslocamento 6 m, voo 15 m
@@ -6024,19 +6017,12 @@ Rocha. Ataque à Distância com Arma: +9 para atingir, distância
 <!-- PageNumber="43" -->
 <!-- PageBreak -->
 
-
-<figure>
-
 COCATRIZ
 Monstruosidade Pequena, imparcial
-
-</figure>
-
 
 Classe de Armadura 11
 Pontos de Vida 27 (6d6 + 6)
 Deslocamento 6 m, voo 12 m
-
 
 <table>
 <tr>
@@ -9698,9 +9684,6 @@ vestido ou carregado, ele pega fogo.
 <!-- PageNumber="75" -->
 <!-- PageBreak -->
 
-
-<figure>
-
 VARIAÇÃO: DIABO DO GELO COM LANÇA
 
 Alguns diabos do gelo tem as seguintes opções de ação.
@@ -9718,7 +9701,6 @@ bônus a cada turno, mas não ambas; e ele não pode realizar
 ações. O alvo pode repetir o teste de resistência no final de cada
 um dos turnos dele, terminando o efeito se obtiver sucesso.
 
-</figure>
 
 
 DIABO DO GELO
@@ -18426,18 +18408,12 @@ Arco Curto. Ataque à Distância com Arma: +4 para atingir, distância
 <!-- PageNumber="137" -->
 <!-- PageBreak -->
 
-
-<figure>
-
 ESQUELETO DE MINOTAURO
 Morto-vivo Grande, leal e mau
 
 Classe de Armadura 12 (armadura natural)
 Pontos de Vida 67 (9d10 + 18)
 Deslocamento 12 m
-
-</figure>
-
 
 <table>
 <tr>
@@ -19184,14 +19160,8 @@ vinagre.
 <!-- PageBreak -->
 
 
-<figure>
-
 FOGO-FÁTUO
 Morto-vivo Miúdo, caótico e mau
-
-</figure>
-
-
 Classe de Armadura 19
 Pontos de Vida 22 (9d4)
 Deslocamento 0 m, voo 15 m (planar)
@@ -20908,6 +20878,7 @@ A maioria são pálidos com peles e cabelos roxo-
 acinzentados, e olhos brilhantes cor de esmeralda. Alguns
 raros gigantes da tempestade possuem pele violeta, com
 cabelos violeta-escuro ou azul-escuro e olhos cinza-
+prateados ou púrpuros. Eles são benevolentes e sábios, a
 prateados ou púrpuros. Eles são benevolentes e sábios, a
 não ser se irritados, quando a resposta da fúria de um
 gigante da tempestade pode afetar o destino de milhares.
@@ -24184,9 +24155,6 @@ dessa forma.
 Prender a Respiração. A hidra pode prender sua respiração por 1
 hora.
 
-
-<figure>
-
 Vigilante. Enquanto a hidra dorme, pelo menos uma de suas
 cabeças permanece acordada.
 
@@ -24197,9 +24165,6 @@ mordida igual à quantidade de cabeças que ela possua.
 
 Mordida. Ataque Corpo-a-Corpo com Arma: +8 para atingir,
 alcance 3 m, um alvo. Acerto: 10 (1d10 + 5) de dano perfurante.
-
-</figure>
-
 
 <!-- PageNumber="185" -->
 <!-- PageBreak -->
@@ -26315,12 +26280,9 @@ lâmias guardem locais importantes para ele, mas as
 lâmias sob seu serviço permanecem livres para espalhar
 sua maldade como acharem adequado.
 
+LÂMIA
 
-<figure>
-<figcaption>LÂMIA Monstruosidade Grande, caótico e mau</figcaption>
-</figure>
-
-
+Monstruosidade Grande, caótico e mau
 Classe de Armadura 13 (armadura natural)
 Pontos de Vida 97 (13d10 + 26)
 Deslocamento 9 m
@@ -34646,14 +34608,8 @@ com as duas mãos para realizar ataques corpo-a-corpo.
 <!-- PageNumber="272" -->
 <!-- PageBreak -->
 
-
-<figure>
-
 SACERDOTISA SAHUAGIN
 Humanoide Médio (sahuagin), leal e mau
-
-</figure>
-
 
 BARÃO SAHUAGIN
 Humanoide Grande (sahuagin), leal e mau
@@ -45376,13 +45332,8 @@ Ataques Múltiplos. O espião realiza dois ataques corpo-a-corpo.
 Espada Curta. Ataque Corpo-a-Corpo com Arma: +4 para atingir,
 alcance 1,5 m, um alvo. Acerto: 5 (1d6 + 2) de dano perfurante.
 
-
-<figure>
-
 Besta de Mão. Ataque à Distância com Arma: +4 para atingir,
 distância 9/36 m, um alvo. Acerto: 5 (1d6 + 2) de dano perfurante.
-
-</figure>
 
 
 <!-- PageBreak -->

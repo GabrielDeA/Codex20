@@ -1,15 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!-- TextChunker é marcado como experimental (SKEXP0050). É uso deliberado no baseline. -->
-    <NoWarn>$(NoWarn);SKEXP0050</NoWarn>
+    <RootNamespace>Codex20.Chunking.Playground</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.SemanticKernel.Core" Version="1.80.0" />
+    <ProjectReference Include="..\Codex20.Core\Codex20.Core.csproj" />
   </ItemGroup>
 
 </Project>

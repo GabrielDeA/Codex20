@@ -1,0 +1,24 @@
+{
+  "profiles": {
+    "monstro": {
+      "commandName": "Project",
+      "commandLineArgs": "monstro --boundaries"
+    },
+    "jogador (magias)": {
+      "commandName": "Project",
+      "commandLineArgs": "jogador --boundaries"
+    },
+    "mestre (itens magicos)": {
+      "commandName": "Project",
+      "commandLineArgs": "mestre --boundaries"
+    },
+    "monstro + amostra": {
+      "commandName": "Project",
+      "commandLineArgs": "monstro --boundaries --sample 5"
+    },
+    "magias (slice p.214-219)": {
+      "commandName": "Project",
+      "commandLineArgs": "jogador --slice 33750,35200 --boundaries"
+    }
+  }
+}
