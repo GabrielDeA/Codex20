@@ -1,7 +1,7 @@
 using System.Text;
 using Codex20.Chunking.Playground;
 using Codex20.Core.Chunking;
-using Codex20.Core.Preprocessing;
+using Codex20.Core.PreProcessamento;
 
 Console.OutputEncoding = Encoding.UTF8;
 
@@ -11,97 +11,97 @@ if (args.Length < 1)
         Uso: Codex20.Chunking.Playground <monstro|jogador|mestre> [caminho.md] [opções]
           (sem caminho, usa o RESULTADO_*.md revisado em Codex20.Ingestion/Data/Markdown)
           --slice A,B     processa apenas as linhas [A,B] do Markdown (1-based, inclusivo)
-          --boundaries    imprime DumpEntityBoundaries (fronteiras entre chunks)
+          --boundaries    imprime DespejarFronteirasEntidade (fronteiras entre chunks)
           --sample N      mostra as N primeiras entidades em detalhe (default 0)
           --show-fallback inclui chunks de fallback no dump de fronteiras
         """);
     return 1;
 }
 
-string book = args[0].ToLowerInvariant();
-string? path = args.Length >= 2 && !args[1].StartsWith("--") ? args[1] : ResolveDefaultPath(book);
-(int sliceStart, int sliceEnd) = ParseSlice(args);
-bool boundaries = args.Contains("--boundaries");
-bool showFallback = args.Contains("--show-fallback");
-int sample = ParseInt(args, "--sample", 0);
+string livro = args[0].ToLowerInvariant();
+string? caminho = args.Length >= 2 && !args[1].StartsWith("--") ? args[1] : ResolverCaminhoPadrao(livro);
+(int recorteInicio, int recorteFim) = LerRecorte(args);
+bool fronteiras = args.Contains("--boundaries");
+bool mostrarFallback = args.Contains("--show-fallback");
+int amostra = LerInteiro(args, "--sample", 0);
 
-if (path is null || !File.Exists(path))
+if (caminho is null || !File.Exists(caminho))
 {
-    Console.Error.WriteLine($"Arquivo não encontrado: {path ?? "(livro desconhecido)"}");
+    Console.Error.WriteLine($"Arquivo não encontrado: {caminho ?? "(livro desconhecido)"}");
     return 1;
 }
 
-string markdown = File.ReadAllText(path);
-if (sliceStart > 0 || sliceEnd > 0)
+string markdown = File.ReadAllText(caminho);
+if (recorteInicio > 0 || recorteFim > 0)
 {
-    string[] all = markdown.Replace("\r\n", "\n").Split('\n');
-    int a = Math.Max(1, sliceStart) - 1;
-    int b = sliceEnd > 0 ? Math.Min(all.Length, sliceEnd) : all.Length;
-    markdown = string.Join('\n', all[a..b]);
+    string[] todas = markdown.Replace("\r\n", "\n").Split('\n');
+    int a = Math.Max(1, recorteInicio) - 1;
+    int b = recorteFim > 0 ? Math.Min(todas.Length, recorteFim) : todas.Length;
+    markdown = string.Join('\n', todas[a..b]);
     Console.WriteLine($"[slice] linhas {a + 1}..{b} ({b - a} linhas)");
 }
 
-var preprocessor = new MarkdownDocumentPreprocessor();
-List<DocumentBlock> blocks = preprocessor.Process(markdown);
+var preProcessador = new PreProcessadorDocumentoMarkdown();
+List<BlocoDocumento> blocos = preProcessador.Processar(markdown);
 
-var fallback = new ParagraphTokenChunkingStrategy();
-EntityAwareChunkingStrategy strategy = book switch
+var fallback = new ChunkingStrategyParagrafoToken();
+ChunkingStrategyPorEntidade strategy = livro switch
 {
-    "monstro" or "monstros" or "manual" => EntityAwareChunkingStrategy.ForManualDosMonstros(fallback),
-    "jogador" or "livro" or "phb" => EntityAwareChunkingStrategy.ForLivroDoJogador(fallback),
-    "mestre" or "guia" or "dmg" => EntityAwareChunkingStrategy.ForGuiaDoMestre(fallback),
-    _ => throw new ArgumentException($"Livro desconhecido: {book}"),
+    "monstro" or "monstros" or "manual" => ChunkingStrategyPorEntidade.ParaManualDosMonstros(fallback),
+    "jogador" or "livro" or "phb" => ChunkingStrategyPorEntidade.ParaLivroDoJogador(fallback),
+    "mestre" or "guia" or "dmg" => ChunkingStrategyPorEntidade.ParaGuiaDoMestre(fallback),
+    _ => throw new ArgumentException($"Livro desconhecido: {livro}"),
 };
 
-Console.WriteLine($"[preprocess] {blocks.Count} blocos "
-    + $"({blocks.Count(b => b is ParagraphBlock)} parágrafos, {blocks.Count(b => b is TableBlock)} tabelas)");
-Console.WriteLine($"[strategy]   {strategy.Name}");
+Console.WriteLine($"[preprocess] {blocos.Count} blocos "
+    + $"({blocos.Count(b => b is BlocoParagrafo)} parágrafos, {blocos.Count(b => b is BlocoTabela)} tabelas)");
+Console.WriteLine($"[strategy]   {strategy.Nome}");
 Console.WriteLine();
 
-List<Chunk> chunks = strategy.Chunk(blocks, book);
+List<Chunk> chunks = strategy.Chunk(blocos, livro);
 
-EntityReport.PrintStats(chunks);
+RelatorioEntidade.ImprimirEstatisticas(chunks);
 
-if (sample > 0)
+if (amostra > 0)
 {
-    EntityReport.PrintSample(chunks, sample);
+    RelatorioEntidade.ImprimirAmostra(chunks, amostra);
 }
 
-if (boundaries)
+if (fronteiras)
 {
-    EntityReport.DumpEntityBoundaries(chunks, showFallback);
+    RelatorioEntidade.DespejarFronteirasEntidade(chunks, mostrarFallback);
 }
 
 return 0;
 
 // Procura o RESULTADO_*.md revisado subindo a partir do binário até achar a raiz da solução.
-static string? ResolveDefaultPath(string book)
+static string? ResolverCaminhoPadrao(string livro)
 {
-    string? file = book switch
+    string? arquivo = livro switch
     {
         "monstro" or "monstros" or "manual" => "RESULTADO_manualMonstro.md",
         "jogador" or "livro" or "phb" => "RESULTADO_LivroDoJogador.md",
         "mestre" or "guia" or "dmg" => "RESULTADO_GuiaDoMestre.md",
         _ => null,
     };
-    if (file is null)
+    if (arquivo is null)
     {
         return null;
     }
 
     for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
     {
-        string candidate = Path.Combine(dir.FullName, "Codex20.Ingestion", "Data", "Markdown", file);
-        if (File.Exists(candidate))
+        string candidato = Path.Combine(dir.FullName, "Codex20.Ingestion", "Data", "Markdown", arquivo);
+        if (File.Exists(candidato))
         {
-            return candidate;
+            return candidato;
         }
     }
 
     return null;
 }
 
-static (int, int) ParseSlice(string[] args)
+static (int, int) LerRecorte(string[] args)
 {
     int idx = Array.IndexOf(args, "--slice");
     if (idx < 0 || idx + 1 >= args.Length)
@@ -109,11 +109,11 @@ static (int, int) ParseSlice(string[] args)
         return (0, 0);
     }
 
-    string[] parts = args[idx + 1].Split(',', 2);
-    return (int.Parse(parts[0]), parts.Length > 1 ? int.Parse(parts[1]) : 0);
+    string[] partes = args[idx + 1].Split(',', 2);
+    return (int.Parse(partes[0]), partes.Length > 1 ? int.Parse(partes[1]) : 0);
 }
 
-static int ParseInt(string[] args, string flag, int fallback)
+static int LerInteiro(string[] args, string flag, int fallback)
 {
     int idx = Array.IndexOf(args, flag);
     return idx >= 0 && idx + 1 < args.Length && int.TryParse(args[idx + 1], out int v) ? v : fallback;

@@ -1,11 +1,11 @@
-using Codex20.Core.Preprocessing;
+using Codex20.Core.PreProcessamento;
 
 namespace Codex20.Core.Chunking;
 
-/// <summary>Estratégia que transforma blocos pré-processados em <see cref="Chunk"/>s.</summary>
+/// <summary>Strategy que transforma blocos pré-processados em <see cref="Chunk"/>s.</summary>
 public interface IChunkingStrategy
 {
-    string Name { get; }
+    string Nome { get; }
 
-    List<Chunk> Chunk(List<DocumentBlock> blocks, string book);
+    List<Chunk> Chunk(List<BlocoDocumento> blocos, string livro);
 }

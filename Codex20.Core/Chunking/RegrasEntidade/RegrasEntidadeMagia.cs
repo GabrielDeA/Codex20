@@ -1,8 +1,8 @@
 using System.Text.RegularExpressions;
-using Codex20.Core.Preprocessing;
-using static Codex20.Core.Chunking.EntityRules.EntityRuleHelpers;
+using Codex20.Core.PreProcessamento;
+using static Codex20.Core.Chunking.RegrasEntidade.AuxiliaresRegrasEntidade;
 
-namespace Codex20.Core.Chunking.EntityRules;
+namespace Codex20.Core.Chunking.RegrasEntidade;
 
 /// <summary>
 /// Regras de detecção de entidade para o <b>Livro do Jogador</b> (entidade = magia).
@@ -36,63 +36,63 @@ namespace Codex20.Core.Chunking.EntityRules;
 /// <para><b>Limitação conhecida</b>: características de classe e talentos não têm âncora
 /// confiável (prosa com subtítulos em CAIXA ALTA) e ficam no fallback.</para>
 /// </summary>
-internal class SpellEntityRules : IEntityRules
+internal class RegrasEntidadeMagia : IRegrasEntidade
 {
-    private static readonly Regex DescriptorLine = new(
+    private static readonly Regex LinhaDescritor = new(
         @"^\s*#{0,6}\s*(Truque de|\d+\s*[º°]\s*n[íi]vel de)\s+" +
         @"(abjuração|adivinhação|conjuração|encantamento|evocação|ilusão|necromancia|transmutação)" +
         @"(\s*\(ritual\))?\s*$",
         RegexOptions.IgnoreCase);
 
-    private static readonly Regex CastingTimeLine = new(@"^Tempo de Conjuração:", RegexOptions.IgnoreCase);
+    private static readonly Regex LinhaTempoDeConjuracao = new(@"^Tempo de Conjuração:", RegexOptions.IgnoreCase);
 
-    public string Name => "entity-aware/magia";
+    public string Nome => "entity-aware/magia";
 
-    public int MaxTokensPerChunk => 2000;
+    public int MaxTokensPorChunk => 2000;
 
-    public bool IsBoundaryHeading(string line) => IsHeadingLine(line);
+    public bool IsHeadingFronteira(string linha) => IsLinhaHeading(linha);
 
-    public (int Start, int End) ResolveSection(List<DocumentBlock> blocks)
+    public (int Inicio, int Fim) ResolverSecao(List<BlocoDocumento> blocos)
     {
-        int start = IndexOfHeadingStartingWith(blocks, "DESCRIÇÕES DAS MAGIAS");
-        if (start < 0)
+        int inicio = IndiceDoHeadingComecandoCom(blocos, "DESCRIÇÕES DAS MAGIAS");
+        if (inicio < 0)
         {
-            return (0, blocks.Count);
+            return (0, blocos.Count);
         }
 
-        int end = IndexOfHeadingStartingWith(blocks, "APÊNDICE", start + 1);
-        return (start + 1, end < 0 ? blocks.Count : end);
+        int fim = IndiceDoHeadingComecandoCom(blocos, "APÊNDICE", inicio + 1);
+        return (inicio + 1, fim < 0 ? blocos.Count : fim);
     }
 
-    public bool IsAnchor(List<DocumentBlock> blocks, int index)
+    public bool IsAncora(List<BlocoDocumento> blocos, int indice)
     {
-        if (blocks[index] is not ParagraphBlock p)
+        if (blocos[indice] is not BlocoParagrafo p)
         {
             return false;
         }
 
-        int descriptorIdx = FindDescriptor(p.Lines);
-        if (descriptorIdx < 0)
+        int indiceDescritor = AcharDescritor(p.Linhas);
+        if (indiceDescritor < 0)
         {
             return false;
         }
 
         // "Tempo de Conjuração" nas linhas seguintes do mesmo bloco...
-        for (int k = descriptorIdx + 1; k < Math.Min(p.Lines.Count, descriptorIdx + 5); k++)
+        for (int k = indiceDescritor + 1; k < Math.Min(p.Linhas.Count, indiceDescritor + 5); k++)
         {
-            if (CastingTimeLine.IsMatch(p.Lines[k]))
+            if (LinhaTempoDeConjuracao.IsMatch(p.Linhas[k]))
             {
                 return true;
             }
         }
 
         // ...ou no início do bloco seguinte.
-        if (index + 1 < blocks.Count)
+        if (indice + 1 < blocos.Count)
         {
-            List<string> next = LinesOf(blocks[index + 1]);
-            for (int k = 0; k < Math.Min(next.Count, 3); k++)
+            List<string> proximo = LinhasDe(blocos[indice + 1]);
+            for (int k = 0; k < Math.Min(proximo.Count, 3); k++)
             {
-                if (CastingTimeLine.IsMatch(next[k]))
+                if (LinhaTempoDeConjuracao.IsMatch(proximo[k]))
                 {
                     return true;
                 }
@@ -102,44 +102,44 @@ internal class SpellEntityRules : IEntityRules
         return false;
     }
 
-    public int FindHeaderStart(List<DocumentBlock> blocks, int anchorIndex)
+    public int AcharInicioCabecalho(List<BlocoDocumento> blocos, int indiceAncora)
     {
-        List<string> lines = LinesOf(blocks[anchorIndex]);
-        int descriptorIdx = FindDescriptor(lines);
+        List<string> linhas = LinhasDe(blocos[indiceAncora]);
+        int indiceDescritor = AcharDescritor(linhas);
 
         // Descritor não é a primeira linha do bloco → o nome está neste mesmo bloco.
-        if (descriptorIdx > 0)
+        if (indiceDescritor > 0)
         {
-            return anchorIndex;
+            return indiceAncora;
         }
 
         // Descritor abre o bloco → o nome está no parágrafo anterior.
-        return Math.Max(0, anchorIndex - 1);
+        return Math.Max(0, indiceAncora - 1);
     }
 
-    public string? ExtractEntityName(List<DocumentBlock> blocks, int headerStart, int anchorIndex)
+    public string? ExtrairNomeEntidade(List<BlocoDocumento> blocos, int inicioCabecalho, int indiceAncora)
     {
-        List<string> anchorLines = LinesOf(blocks[anchorIndex]);
-        int descriptorIdx = FindDescriptor(anchorLines);
+        List<string> linhasAncora = LinhasDe(blocos[indiceAncora]);
+        int indiceDescritor = AcharDescritor(linhasAncora);
 
         // Nome nas linhas do próprio bloco-âncora, acima do descritor.
-        for (int k = descriptorIdx - 1; k >= 0; k--)
+        for (int k = indiceDescritor - 1; k >= 0; k--)
         {
-            if (LooksLikeCapsName(anchorLines[k]))
+            if (IsNomeEmCaixaAlta(linhasAncora[k]))
             {
-                return ToTitleCase(CleanName(anchorLines[k]));
+                return ParaTitleCase(LimparNome(linhasAncora[k]));
             }
         }
 
         // Nome no(s) bloco(s) de cabeçalho anteriores.
-        for (int i = anchorIndex - 1; i >= headerStart && i >= 0; i--)
+        for (int i = indiceAncora - 1; i >= inicioCabecalho && i >= 0; i--)
         {
-            List<string> lines = LinesOf(blocks[i]);
-            for (int k = lines.Count - 1; k >= 0; k--)
+            List<string> linhas = LinhasDe(blocos[i]);
+            for (int k = linhas.Count - 1; k >= 0; k--)
             {
-                if (LooksLikeCapsName(lines[k]))
+                if (IsNomeEmCaixaAlta(linhas[k]))
                 {
-                    return ToTitleCase(CleanName(lines[k]));
+                    return ParaTitleCase(LimparNome(linhas[k]));
                 }
             }
         }
@@ -147,11 +147,11 @@ internal class SpellEntityRules : IEntityRules
         return null;
     }
 
-    private static int FindDescriptor(List<string> lines)
+    private static int AcharDescritor(List<string> linhas)
     {
-        for (int i = 0; i < lines.Count; i++)
+        for (int i = 0; i < linhas.Count; i++)
         {
-            if (DescriptorLine.IsMatch(lines[i]))
+            if (LinhaDescritor.IsMatch(linhas[i]))
             {
                 return i;
             }

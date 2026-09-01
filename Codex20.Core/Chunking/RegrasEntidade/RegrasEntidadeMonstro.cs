@@ -1,8 +1,8 @@
 using System.Text.RegularExpressions;
-using Codex20.Core.Preprocessing;
-using static Codex20.Core.Chunking.EntityRules.EntityRuleHelpers;
+using Codex20.Core.PreProcessamento;
+using static Codex20.Core.Chunking.RegrasEntidade.AuxiliaresRegrasEntidade;
 
-namespace Codex20.Core.Chunking.EntityRules;
+namespace Codex20.Core.Chunking.RegrasEntidade;
 
 /// <summary>
 /// Regras de detecção de entidade para o <b>Manual dos Monstros</b> (entidade = criatura).
@@ -41,11 +41,11 @@ namespace Codex20.Core.Chunking.EntityRules;
 /// coladas em "## DEUSES SERPENTES") às vezes não têm cabeçalho próprio no Markdown — uma
 /// delas (p.272) fica sem nome extraído.</para>
 /// </summary>
-internal class MonsterEntityRules : IEntityRules
+internal class RegrasEntidadeMonstro : IRegrasEntidade
 {
-    private static readonly Regex ArmorClassLine = new(@"^Classe de Armadura\s+\d", RegexOptions.IgnoreCase);
+    private static readonly Regex LinhaClasseDeArmadura = new(@"^Classe de Armadura\s+\d", RegexOptions.IgnoreCase);
 
-    private static readonly Regex HitPointsLine = new(@"^Pontos de Vida\s+\d", RegexOptions.IgnoreCase);
+    private static readonly Regex LinhaPontosDeVida = new(@"^Pontos de Vida\s+\d", RegexOptions.IgnoreCase);
 
     /// <summary>
     /// Linha-tipo da criatura: <c>&lt;Tipo&gt; &lt;Tamanho&gt;[ (&lt;subtipo&gt;)], &lt;alinhamento&gt;</c>.
@@ -53,44 +53,44 @@ internal class MonsterEntityRules : IEntityRules
     /// não confundir com o nome em CAIXA ALTA ("DRAGÃO AZUL ADULTO"). O Tamanho pode vir em
     /// minúsculas ("Besta pequena"), então só essa parte é case-insensitive.
     /// </summary>
-    private static readonly Regex TypeLine = new(
-        @"(?<name>.*?)\b(?<type>Aberração|Besta|Celestial|Constructo|Corruptor|Drag(ão|ões)|Elemental|Enxame|Fada|Gigante|Humanoide|Limo|Monstruosidade|Morto-vivo|Planta)\b" +
+    private static readonly Regex LinhaTipo = new(
+        @"(?<nome>.*?)\b(?<tipo>Aberração|Besta|Celestial|Constructo|Corruptor|Drag(ão|ões)|Elemental|Enxame|Fada|Gigante|Humanoide|Limo|Monstruosidade|Morto-vivo|Planta)\b" +
         @"[^,]*?\s(?i:Min[úu]scul[oa]|Mi[úu]d[oa]|Pequen[oa]|M[ée]di[oa]|Grande|Enorme|Imens[oa]|Colossal)\b[^,]*,\s*\S");
 
-    public string Name => "entity-aware/monstro";
+    public string Nome => "entity-aware/monstro";
 
-    public int MaxTokensPerChunk => 6000;
+    public int MaxTokensPorChunk => 6000;
 
     // Criaturas ocupam quase o livro inteiro; sem gate de seção.
-    public (int Start, int End) ResolveSection(List<DocumentBlock> blocks) => (0, blocks.Count);
+    public (int Inicio, int Fim) ResolverSecao(List<BlocoDocumento> blocos) => (0, blocos.Count);
 
-    public bool IsBoundaryHeading(string line) => IsEntityBoundaryHeading(line);
+    public bool IsHeadingFronteira(string linha) => IsHeadingFronteiraEntidade(linha);
 
-    public bool IsAnchor(List<DocumentBlock> blocks, int index)
+    public bool IsAncora(List<BlocoDocumento> blocos, int indice)
     {
-        if (blocks[index] is not ParagraphBlock p)
+        if (blocos[indice] is not BlocoParagrafo p)
         {
             return false;
         }
 
-        for (int k = 0; k < p.Lines.Count; k++)
+        for (int k = 0; k < p.Linhas.Count; k++)
         {
-            if (!ArmorClassLine.IsMatch(p.Lines[k]))
+            if (!LinhaClasseDeArmadura.IsMatch(p.Linhas[k]))
             {
                 continue;
             }
 
             // "Pontos de Vida" logo abaixo, no mesmo bloco...
-            if (k + 1 < p.Lines.Count && HitPointsLine.IsMatch(p.Lines[k + 1]))
+            if (k + 1 < p.Linhas.Count && LinhaPontosDeVida.IsMatch(p.Linhas[k + 1]))
             {
                 return true;
             }
 
             // ...ou no início do bloco seguinte.
-            if (index + 1 < blocks.Count)
+            if (indice + 1 < blocos.Count)
             {
-                List<string> next = LinesOf(blocks[index + 1]);
-                if (next.Count > 0 && HitPointsLine.IsMatch(next[0]))
+                List<string> proximo = LinhasDe(blocos[indice + 1]);
+                if (proximo.Count > 0 && LinhaPontosDeVida.IsMatch(proximo[0]))
                 {
                     return true;
                 }
@@ -100,139 +100,139 @@ internal class MonsterEntityRules : IEntityRules
         return false;
     }
 
-    public int FindHeaderStart(List<DocumentBlock> blocks, int anchorIndex)
+    public int AcharInicioCabecalho(List<BlocoDocumento> blocos, int indiceAncora)
     {
         // (a) Sobe até 5 parágrafos procurando a linha-tipo da ficha desta criatura.
-        int statHeader = -1;
-        for (int i = anchorIndex - 1; i >= 0 && i >= anchorIndex - 5; i--)
+        int cabecalhoAtributos = -1;
+        for (int i = indiceAncora - 1; i >= 0 && i >= indiceAncora - 5; i--)
         {
-            List<string> lines = LinesOf(blocks[i]);
-            int typeLineIdx = FindTypeLine(lines);
-            if (typeLineIdx < 0)
+            List<string> linhas = LinhasDe(blocos[i]);
+            int indiceLinhaTipo = AcharLinhaTipo(linhas);
+            if (indiceLinhaTipo < 0)
             {
                 continue;
             }
 
             // Linha-tipo sem nome inline e sem nome acima → o nome está no bloco anterior.
-            Match m = TypeLine.Match(lines[typeLineIdx]);
-            bool nameInline = CleanName(m.Groups["name"].Value).Length > 0;
-            bool nameAbove = typeLineIdx > 0 && LooksLikeCapsName(lines[typeLineIdx - 1]);
-            bool nameInPrevBlock = !nameInline && !nameAbove
-                && i - 1 >= 0 && LooksLikeCapsName(LastLine(blocks[i - 1]));
+            Match m = LinhaTipo.Match(linhas[indiceLinhaTipo]);
+            bool nomeInline = LimparNome(m.Groups["nome"].Value).Length > 0;
+            bool nomeAcima = indiceLinhaTipo > 0 && IsNomeEmCaixaAlta(linhas[indiceLinhaTipo - 1]);
+            bool nomeNoBlocoAnterior = !nomeInline && !nomeAcima
+                && i - 1 >= 0 && IsNomeEmCaixaAlta(UltimaLinha(blocos[i - 1]));
 
-            statHeader = nameInPrevBlock ? i - 1 : i;
+            cabecalhoAtributos = nomeNoBlocoAnterior ? i - 1 : i;
             break;
         }
 
-        if (statHeader < 0)
+        if (cabecalhoAtributos < 0)
         {
-            return anchorIndex - 1; // ficha-variante sem cabeçalho próprio
+            return indiceAncora - 1; // ficha-variante sem cabeçalho próprio
         }
 
         // (b) Continua subindo por parágrafos de lore até o heading do capítulo da criatura.
         // Para se cruzar a ficha da criatura ANTERIOR (âncora, linha-tipo ou sub-cabeçalho).
-        for (int j = statHeader - 1; j >= 0 && j >= statHeader - 15; j--)
+        for (int j = cabecalhoAtributos - 1; j >= 0 && j >= cabecalhoAtributos - 15; j--)
         {
-            if (IsAnchor(blocks, j))
+            if (IsAncora(blocos, j))
             {
                 break;
             }
 
-            List<string> lines = LinesOf(blocks[j]);
-            if (lines.Count == 0)
+            List<string> linhas = LinhasDe(blocos[j]);
+            if (linhas.Count == 0)
             {
                 continue;
             }
 
-            if (FindTypeLine(lines) >= 0)
+            if (AcharLinhaTipo(linhas) >= 0)
             {
                 break;
             }
 
             // Sub-cabeçalho de ficha (# AÇÕES, ## REAÇÕES...) → é da criatura anterior; para.
-            if (IsHeadingLine(lines[0]) && !IsEntityBoundaryHeading(lines[0]))
+            if (IsLinhaHeading(linhas[0]) && !IsHeadingFronteiraEntidade(linhas[0]))
             {
                 break;
             }
 
-            if (IsEntityBoundaryHeading(lines[0]))
+            if (IsHeadingFronteiraEntidade(linhas[0]))
             {
                 return j;
             }
         }
 
-        return statHeader;
+        return cabecalhoAtributos;
     }
 
-    public string? ExtractEntityName(List<DocumentBlock> blocks, int headerStart, int anchorIndex)
+    public string? ExtrairNomeEntidade(List<BlocoDocumento> blocos, int inicioCabecalho, int indiceAncora)
     {
         // Varre do cabeçalho até a âncora atrás da linha-tipo; ignora falsos positivos na lore.
-        for (int i = headerStart; i <= anchorIndex && i < blocks.Count; i++)
+        for (int i = inicioCabecalho; i <= indiceAncora && i < blocos.Count; i++)
         {
-            List<string> lines = LinesOf(blocks[i]);
-            for (int k = 0; k < lines.Count; k++)
+            List<string> linhas = LinhasDe(blocos[i]);
+            for (int k = 0; k < linhas.Count; k++)
             {
-                if (!TypeLine.IsMatch(lines[k]))
+                if (!LinhaTipo.IsMatch(linhas[k]))
                 {
                     continue;
                 }
 
                 // 1. Nome inline, antes do tipo, na própria linha-tipo.
-                string inline = CleanName(TypeLine.Match(lines[k]).Groups["name"].Value);
-                if (inline.Length > 1 && LooksLikeCapsName(inline))
+                string inline = LimparNome(LinhaTipo.Match(linhas[k]).Groups["nome"].Value);
+                if (inline.Length > 1 && IsNomeEmCaixaAlta(inline))
                 {
-                    return ToTitleCase(inline);
+                    return ParaTitleCase(inline);
                 }
 
                 // 2. Linha(s) em CAIXA ALTA imediatamente acima (mesmo bloco).
-                string? above = CapsNameEndingAt(lines, k - 1);
-                if (above != null)
+                string? acima = NomeEmCaixaAltaTerminandoEm(linhas, k - 1);
+                if (acima != null)
                 {
-                    return ToTitleCase(above);
+                    return ParaTitleCase(acima);
                 }
 
                 // 3. Última(s) linha(s) do bloco anterior.
                 if (i - 1 >= 0)
                 {
-                    List<string> prev = LinesOf(blocks[i - 1]);
-                    string? prevName = CapsNameEndingAt(prev, prev.Count - 1);
-                    if (prevName != null)
+                    List<string> anterior = LinhasDe(blocos[i - 1]);
+                    string? nomeAnterior = NomeEmCaixaAltaTerminandoEm(anterior, anterior.Count - 1);
+                    if (nomeAnterior != null)
                     {
-                        return ToTitleCase(prevName);
+                        return ParaTitleCase(nomeAnterior);
                     }
                 }
 
                 // 4. Heading do capítulo (ex.: "## OROG", "## POVO LAGARTO").
-                return NameFromChapterHeading(blocks, headerStart);
+                return NomeDoHeadingDeCapitulo(blocos, inicioCabecalho);
             }
         }
 
         // Nenhuma linha-tipo achada mas o cabeçalho pode ser um heading em CAIXA ALTA.
-        return NameFromChapterHeading(blocks, headerStart);
+        return NomeDoHeadingDeCapitulo(blocos, inicioCabecalho);
     }
 
-    private static string? NameFromChapterHeading(List<DocumentBlock> blocks, int headerStart)
+    private static string? NomeDoHeadingDeCapitulo(List<BlocoDocumento> blocos, int inicioCabecalho)
     {
-        List<string> lines = LinesOf(blocks[headerStart]);
-        if (lines.Count == 0)
+        List<string> linhas = LinhasDe(blocos[inicioCabecalho]);
+        if (linhas.Count == 0)
         {
             return null;
         }
 
-        string headerLine = lines[0];
-        if (IsEntityBoundaryHeading(headerLine) && LooksLikeCapsName(headerLine))
+        string linhaCabecalho = linhas[0];
+        if (IsHeadingFronteiraEntidade(linhaCabecalho) && IsNomeEmCaixaAlta(linhaCabecalho))
         {
-            return ToTitleCase(CleanName(headerLine));
+            return ParaTitleCase(LimparNome(linhaCabecalho));
         }
 
         return null;
     }
 
-    private static int FindTypeLine(List<string> lines)
+    private static int AcharLinhaTipo(List<string> linhas)
     {
-        for (int i = 0; i < lines.Count; i++)
+        for (int i = 0; i < linhas.Count; i++)
         {
-            if (TypeLine.IsMatch(lines[i]))
+            if (LinhaTipo.IsMatch(linhas[i]))
             {
                 return i;
             }
@@ -241,26 +241,26 @@ internal class MonsterEntityRules : IEntityRules
         return -1;
     }
 
-    /// <summary>Junta 1–2 linhas em CAIXA ALTA terminando no índice <paramref name="end"/>.</summary>
-    private static string? CapsNameEndingAt(List<string> lines, int end)
+    /// <summary>Junta 1–2 linhas em CAIXA ALTA terminando no índice <paramref name="fim"/>.</summary>
+    private static string? NomeEmCaixaAltaTerminandoEm(List<string> linhas, int fim)
     {
-        if (end < 0 || end >= lines.Count || !LooksLikeCapsName(lines[end]))
+        if (fim < 0 || fim >= linhas.Count || !IsNomeEmCaixaAlta(linhas[fim]))
         {
             return null;
         }
 
-        string name = StripHeading(lines[end]).Trim();
-        if (end - 1 >= 0 && LooksLikeCapsName(lines[end - 1]) && !TypeLine.IsMatch(lines[end - 1]))
+        string nome = RemoverHeading(linhas[fim]).Trim();
+        if (fim - 1 >= 0 && IsNomeEmCaixaAlta(linhas[fim - 1]) && !LinhaTipo.IsMatch(linhas[fim - 1]))
         {
-            name = StripHeading(lines[end - 1]).Trim() + " " + name;
+            nome = RemoverHeading(linhas[fim - 1]).Trim() + " " + nome;
         }
 
-        return CleanName(name);
+        return LimparNome(nome);
     }
 
-    private static string LastLine(DocumentBlock block)
+    private static string UltimaLinha(BlocoDocumento bloco)
     {
-        List<string> lines = LinesOf(block);
-        return lines.Count > 0 ? lines[lines.Count - 1] : string.Empty;
+        List<string> linhas = LinhasDe(bloco);
+        return linhas.Count > 0 ? linhas[linhas.Count - 1] : string.Empty;
     }
 }

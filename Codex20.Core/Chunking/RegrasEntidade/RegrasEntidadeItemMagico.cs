@@ -1,8 +1,8 @@
 using System.Text.RegularExpressions;
-using Codex20.Core.Preprocessing;
-using static Codex20.Core.Chunking.EntityRules.EntityRuleHelpers;
+using Codex20.Core.PreProcessamento;
+using static Codex20.Core.Chunking.RegrasEntidade.AuxiliaresRegrasEntidade;
 
-namespace Codex20.Core.Chunking.EntityRules;
+namespace Codex20.Core.Chunking.RegrasEntidade;
 
 /// <summary>
 /// Regras de detecção de entidade para o <b>Guia do Mestre</b> (entidade = item mágico).
@@ -41,95 +41,95 @@ namespace Codex20.Core.Chunking.EntityRules;
 /// fogo, têm formato próprio e ficam no fallback (a seção termina em "ITENS MÁGICOS
 /// INTELIGENTES").</para>
 /// </summary>
-internal class MagicItemEntityRules : IEntityRules
+internal class RegrasEntidadeItemMagico : IRegrasEntidade
 {
-    private static readonly Regex DescriptorLine = new(
-        @"^\s*#{0,6}\s*(?<name>.*?)\s*\b(?<type>Item maravilhoso|Anel|Armadura|Arma|Poção|Pergaminho|Varinha|Cajado|Bastão|Haste)\b" +
-        @"(\s*\([^)]*\))?,\s*(?<rar>comum|incomum|rar[oa]|muito rar[oa]|lend[áa]ri[oa]|artefato)\b" +
+    private static readonly Regex LinhaDescritor = new(
+        @"^\s*#{0,6}\s*(?<nome>.*?)\s*\b(?<tipo>Item maravilhoso|Anel|Armadura|Arma|Poção|Pergaminho|Varinha|Cajado|Bastão|Haste)\b" +
+        @"(\s*\([^)]*\))?,\s*(?<raridade>comum|incomum|rar[oa]|muito rar[oa]|lend[áa]ri[oa]|artefato)\b" +
         @"(\s*\(requer sintoniza\w+[^)]*\))?" +
         @"(\s*\(\+\d\).*)?$", // tolera a cauda "(+1), rara (+2) ou muito rara" das entradas genéricas +X
         RegexOptions.IgnoreCase);
 
-    public string Name => "entity-aware/item-magico";
+    public string Nome => "entity-aware/item-magico";
 
-    public int MaxTokensPerChunk => 2500;
+    public int MaxTokensPorChunk => 2500;
 
-    public bool IsBoundaryHeading(string line) => IsHeadingLine(line);
+    public bool IsHeadingFronteira(string linha) => IsLinhaHeading(linha);
 
-    public (int Start, int End) ResolveSection(List<DocumentBlock> blocks)
+    public (int Inicio, int Fim) ResolverSecao(List<BlocoDocumento> blocos)
     {
-        int start = IndexOfHeadingStartingWith(blocks, "ITENS MÁGICOS DE A-Z");
-        if (start < 0)
+        int inicio = IndiceDoHeadingComecandoCom(blocos, "ITENS MÁGICOS DE A-Z");
+        if (inicio < 0)
         {
-            return (0, blocks.Count);
+            return (0, blocos.Count);
         }
 
-        int end = IndexOfHeadingStartingWith(blocks, "ITENS MÁGICOS INTELIGENTES", start + 1);
-        return (start + 1, end < 0 ? blocks.Count : end);
+        int fim = IndiceDoHeadingComecandoCom(blocos, "ITENS MÁGICOS INTELIGENTES", inicio + 1);
+        return (inicio + 1, fim < 0 ? blocos.Count : fim);
     }
 
-    public bool IsAnchor(List<DocumentBlock> blocks, int index)
+    public bool IsAncora(List<BlocoDocumento> blocos, int indice)
     {
-        if (blocks[index] is not ParagraphBlock p || p.Lines.Count == 0)
+        if (blocos[indice] is not BlocoParagrafo p || p.Linhas.Count == 0)
         {
             return false;
         }
 
         // O descritor abre a entrada (linha 0) ou é a 1ª linha após o heading do nome.
-        if (DescriptorLine.IsMatch(p.Lines[0]))
+        if (LinhaDescritor.IsMatch(p.Linhas[0]))
         {
             return true;
         }
 
-        return p.Lines.Count > 1 && DescriptorLine.IsMatch(p.Lines[1]) && LooksLikeCapsName(p.Lines[0]);
+        return p.Linhas.Count > 1 && LinhaDescritor.IsMatch(p.Linhas[1]) && IsNomeEmCaixaAlta(p.Linhas[0]);
     }
 
-    public int FindHeaderStart(List<DocumentBlock> blocks, int anchorIndex)
+    public int AcharInicioCabecalho(List<BlocoDocumento> blocos, int indiceAncora)
     {
-        List<string> lines = LinesOf(blocks[anchorIndex]);
-        Match m = DescriptorLine.Match(lines[0]);
-        bool nameInline = m.Success && CleanName(m.Groups["name"].Value).Length > 1;
-        bool nameInSameBlock = lines.Count > 1 && LooksLikeCapsName(lines[0]);
+        List<string> linhas = LinhasDe(blocos[indiceAncora]);
+        Match m = LinhaDescritor.Match(linhas[0]);
+        bool nomeInline = m.Success && LimparNome(m.Groups["nome"].Value).Length > 1;
+        bool nomeNoMesmoBloco = linhas.Count > 1 && IsNomeEmCaixaAlta(linhas[0]);
 
-        if (nameInline || nameInSameBlock)
+        if (nomeInline || nomeNoMesmoBloco)
         {
-            return anchorIndex;
+            return indiceAncora;
         }
 
         // Descritor sozinho → nome está no parágrafo (heading) anterior.
-        return Math.Max(0, anchorIndex - 1);
+        return Math.Max(0, indiceAncora - 1);
     }
 
-    public string? ExtractEntityName(List<DocumentBlock> blocks, int headerStart, int anchorIndex)
+    public string? ExtrairNomeEntidade(List<BlocoDocumento> blocos, int inicioCabecalho, int indiceAncora)
     {
-        List<string> lines = LinesOf(blocks[anchorIndex]);
+        List<string> linhas = LinhasDe(blocos[indiceAncora]);
 
         // 1. Nome inline, antes do tipo, na linha-descritor.
-        Match m = DescriptorLine.Match(lines[0]);
+        Match m = LinhaDescritor.Match(linhas[0]);
         if (m.Success)
         {
-            string inline = CleanName(m.Groups["name"].Value);
-            if (inline.Length > 1 && LooksLikeCapsName(inline))
+            string inline = LimparNome(m.Groups["nome"].Value);
+            if (inline.Length > 1 && IsNomeEmCaixaAlta(inline))
             {
-                return ToTitleCase(inline);
+                return ParaTitleCase(inline);
             }
         }
 
         // 2. Linha em CAIXA ALTA acima do descritor, no mesmo bloco.
-        if (lines.Count > 1 && DescriptorLine.IsMatch(lines[1]) && LooksLikeCapsName(lines[0]))
+        if (linhas.Count > 1 && LinhaDescritor.IsMatch(linhas[1]) && IsNomeEmCaixaAlta(linhas[0]))
         {
-            return ToTitleCase(CleanName(lines[0]));
+            return ParaTitleCase(LimparNome(linhas[0]));
         }
 
         // 3. Heading do bloco anterior.
-        for (int i = anchorIndex - 1; i >= headerStart && i >= 0; i--)
+        for (int i = indiceAncora - 1; i >= inicioCabecalho && i >= 0; i--)
         {
-            List<string> prev = LinesOf(blocks[i]);
-            for (int k = prev.Count - 1; k >= 0; k--)
+            List<string> anterior = LinhasDe(blocos[i]);
+            for (int k = anterior.Count - 1; k >= 0; k--)
             {
-                if (LooksLikeCapsName(prev[k]))
+                if (IsNomeEmCaixaAlta(anterior[k]))
                 {
-                    return ToTitleCase(CleanName(prev[k]));
+                    return ParaTitleCase(LimparNome(anterior[k]));
                 }
             }
         }
