@@ -43,7 +43,7 @@ namespace Codex20.Core.Chunking.RegrasEntidade;
 /// </summary>
 internal class RegrasEntidadeItemMagico : IRegrasEntidade
 {
-    private static readonly Regex LinhaDescritor = new(
+    private static readonly Regex RegexLinhaDescritor = new(
         @"^\s*#{0,6}\s*(?<nome>.*?)\s*\b(?<tipo>Item maravilhoso|Anel|Armadura|Arma|Poção|Pergaminho|Varinha|Cajado|Bastão|Haste)\b" +
         @"(\s*\([^)]*\))?,\s*(?<raridade>comum|incomum|rar[oa]|muito rar[oa]|lend[áa]ri[oa]|artefato)\b" +
         @"(\s*\(requer sintoniza\w+[^)]*\))?" +
@@ -76,18 +76,18 @@ internal class RegrasEntidadeItemMagico : IRegrasEntidade
         }
 
         // O descritor abre a entrada (linha 0) ou é a 1ª linha após o heading do nome.
-        if (LinhaDescritor.IsMatch(p.Linhas[0]))
+        if (RegexLinhaDescritor.IsMatch(p.Linhas[0]))
         {
             return true;
         }
 
-        return p.Linhas.Count > 1 && LinhaDescritor.IsMatch(p.Linhas[1]) && IsNomeEmCaixaAlta(p.Linhas[0]);
+        return p.Linhas.Count > 1 && RegexLinhaDescritor.IsMatch(p.Linhas[1]) && IsNomeEmCaixaAlta(p.Linhas[0]);
     }
 
     public int AcharInicioCabecalho(List<BlocoDocumento> blocos, int indiceAncora)
     {
         List<string> linhas = LinhasDe(blocos[indiceAncora]);
-        Match m = LinhaDescritor.Match(linhas[0]);
+        Match m = RegexLinhaDescritor.Match(linhas[0]);
         bool nomeInline = m.Success && LimparNome(m.Groups["nome"].Value).Length > 1;
         bool nomeNoMesmoBloco = linhas.Count > 1 && IsNomeEmCaixaAlta(linhas[0]);
 
@@ -105,7 +105,7 @@ internal class RegrasEntidadeItemMagico : IRegrasEntidade
         List<string> linhas = LinhasDe(blocos[indiceAncora]);
 
         // 1. Nome inline, antes do tipo, na linha-descritor.
-        Match m = LinhaDescritor.Match(linhas[0]);
+        Match m = RegexLinhaDescritor.Match(linhas[0]);
         if (m.Success)
         {
             string inline = LimparNome(m.Groups["nome"].Value);
@@ -116,7 +116,7 @@ internal class RegrasEntidadeItemMagico : IRegrasEntidade
         }
 
         // 2. Linha em CAIXA ALTA acima do descritor, no mesmo bloco.
-        if (linhas.Count > 1 && LinhaDescritor.IsMatch(linhas[1]) && IsNomeEmCaixaAlta(linhas[0]))
+        if (linhas.Count > 1 && RegexLinhaDescritor.IsMatch(linhas[1]) && IsNomeEmCaixaAlta(linhas[0]))
         {
             return ParaTitleCase(LimparNome(linhas[0]));
         }

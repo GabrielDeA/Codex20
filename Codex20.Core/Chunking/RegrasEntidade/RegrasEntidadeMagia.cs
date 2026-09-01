@@ -38,13 +38,13 @@ namespace Codex20.Core.Chunking.RegrasEntidade;
 /// </summary>
 internal class RegrasEntidadeMagia : IRegrasEntidade
 {
-    private static readonly Regex LinhaDescritor = new(
+    private static readonly Regex RegexLinhaDescritor = new(
         @"^\s*#{0,6}\s*(Truque de|\d+\s*[º°]\s*n[íi]vel de)\s+" +
         @"(abjuração|adivinhação|conjuração|encantamento|evocação|ilusão|necromancia|transmutação)" +
         @"(\s*\(ritual\))?\s*$",
         RegexOptions.IgnoreCase);
 
-    private static readonly Regex LinhaTempoDeConjuracao = new(@"^Tempo de Conjuração:", RegexOptions.IgnoreCase);
+    private static readonly Regex RegexLinhaTempoDeConjuracao = new(@"^Tempo de Conjuração:", RegexOptions.IgnoreCase);
 
     public string Nome => "entity-aware/magia";
 
@@ -80,7 +80,7 @@ internal class RegrasEntidadeMagia : IRegrasEntidade
         // "Tempo de Conjuração" nas linhas seguintes do mesmo bloco...
         for (int k = indiceDescritor + 1; k < Math.Min(p.Linhas.Count, indiceDescritor + 5); k++)
         {
-            if (LinhaTempoDeConjuracao.IsMatch(p.Linhas[k]))
+            if (RegexLinhaTempoDeConjuracao.IsMatch(p.Linhas[k]))
             {
                 return true;
             }
@@ -92,7 +92,7 @@ internal class RegrasEntidadeMagia : IRegrasEntidade
             List<string> proximo = LinhasDe(blocos[indice + 1]);
             for (int k = 0; k < Math.Min(proximo.Count, 3); k++)
             {
-                if (LinhaTempoDeConjuracao.IsMatch(proximo[k]))
+                if (RegexLinhaTempoDeConjuracao.IsMatch(proximo[k]))
                 {
                     return true;
                 }
@@ -151,7 +151,7 @@ internal class RegrasEntidadeMagia : IRegrasEntidade
     {
         for (int i = 0; i < linhas.Count; i++)
         {
-            if (LinhaDescritor.IsMatch(linhas[i]))
+            if (RegexLinhaDescritor.IsMatch(linhas[i]))
             {
                 return i;
             }

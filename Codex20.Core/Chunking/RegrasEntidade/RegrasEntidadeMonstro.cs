@@ -43,9 +43,9 @@ namespace Codex20.Core.Chunking.RegrasEntidade;
 /// </summary>
 internal class RegrasEntidadeMonstro : IRegrasEntidade
 {
-    private static readonly Regex LinhaClasseDeArmadura = new(@"^Classe de Armadura\s+\d", RegexOptions.IgnoreCase);
+    private static readonly Regex RegexLinhaClasseDeArmadura = new(@"^Classe de Armadura\s+\d", RegexOptions.IgnoreCase);
 
-    private static readonly Regex LinhaPontosDeVida = new(@"^Pontos de Vida\s+\d", RegexOptions.IgnoreCase);
+    private static readonly Regex RegexLinhaPontosDeVida = new(@"^Pontos de Vida\s+\d", RegexOptions.IgnoreCase);
 
     /// <summary>
     /// Linha-tipo da criatura: <c>&lt;Tipo&gt; &lt;Tamanho&gt;[ (&lt;subtipo&gt;)], &lt;alinhamento&gt;</c>.
@@ -53,7 +53,7 @@ internal class RegrasEntidadeMonstro : IRegrasEntidade
     /// não confundir com o nome em CAIXA ALTA ("DRAGÃO AZUL ADULTO"). O Tamanho pode vir em
     /// minúsculas ("Besta pequena"), então só essa parte é case-insensitive.
     /// </summary>
-    private static readonly Regex LinhaTipo = new(
+    private static readonly Regex RegexLinhaTipo = new(
         @"(?<nome>.*?)\b(?<tipo>Aberração|Besta|Celestial|Constructo|Corruptor|Drag(ão|ões)|Elemental|Enxame|Fada|Gigante|Humanoide|Limo|Monstruosidade|Morto-vivo|Planta)\b" +
         @"[^,]*?\s(?i:Min[úu]scul[oa]|Mi[úu]d[oa]|Pequen[oa]|M[ée]di[oa]|Grande|Enorme|Imens[oa]|Colossal)\b[^,]*,\s*\S");
 
@@ -75,13 +75,13 @@ internal class RegrasEntidadeMonstro : IRegrasEntidade
 
         for (int k = 0; k < p.Linhas.Count; k++)
         {
-            if (!LinhaClasseDeArmadura.IsMatch(p.Linhas[k]))
+            if (!RegexLinhaClasseDeArmadura.IsMatch(p.Linhas[k]))
             {
                 continue;
             }
 
             // "Pontos de Vida" logo abaixo, no mesmo bloco...
-            if (k + 1 < p.Linhas.Count && LinhaPontosDeVida.IsMatch(p.Linhas[k + 1]))
+            if (k + 1 < p.Linhas.Count && RegexLinhaPontosDeVida.IsMatch(p.Linhas[k + 1]))
             {
                 return true;
             }
@@ -90,7 +90,7 @@ internal class RegrasEntidadeMonstro : IRegrasEntidade
             if (indice + 1 < blocos.Count)
             {
                 List<string> proximo = LinhasDe(blocos[indice + 1]);
-                if (proximo.Count > 0 && LinhaPontosDeVida.IsMatch(proximo[0]))
+                if (proximo.Count > 0 && RegexLinhaPontosDeVida.IsMatch(proximo[0]))
                 {
                     return true;
                 }
@@ -114,7 +114,7 @@ internal class RegrasEntidadeMonstro : IRegrasEntidade
             }
 
             // Linha-tipo sem nome inline e sem nome acima → o nome está no bloco anterior.
-            Match m = LinhaTipo.Match(linhas[indiceLinhaTipo]);
+            Match m = RegexLinhaTipo.Match(linhas[indiceLinhaTipo]);
             bool nomeInline = LimparNome(m.Groups["nome"].Value).Length > 0;
             bool nomeAcima = indiceLinhaTipo > 0 && IsNomeEmCaixaAlta(linhas[indiceLinhaTipo - 1]);
             bool nomeNoBlocoAnterior = !nomeInline && !nomeAcima
@@ -172,13 +172,13 @@ internal class RegrasEntidadeMonstro : IRegrasEntidade
             List<string> linhas = LinhasDe(blocos[i]);
             for (int k = 0; k < linhas.Count; k++)
             {
-                if (!LinhaTipo.IsMatch(linhas[k]))
+                if (!RegexLinhaTipo.IsMatch(linhas[k]))
                 {
                     continue;
                 }
 
                 // 1. Nome inline, antes do tipo, na própria linha-tipo.
-                string inline = LimparNome(LinhaTipo.Match(linhas[k]).Groups["nome"].Value);
+                string inline = LimparNome(RegexLinhaTipo.Match(linhas[k]).Groups["nome"].Value);
                 if (inline.Length > 1 && IsNomeEmCaixaAlta(inline))
                 {
                     return ParaTitleCase(inline);
@@ -232,7 +232,7 @@ internal class RegrasEntidadeMonstro : IRegrasEntidade
     {
         for (int i = 0; i < linhas.Count; i++)
         {
-            if (LinhaTipo.IsMatch(linhas[i]))
+            if (RegexLinhaTipo.IsMatch(linhas[i]))
             {
                 return i;
             }
@@ -250,7 +250,7 @@ internal class RegrasEntidadeMonstro : IRegrasEntidade
         }
 
         string nome = RemoverHeading(linhas[fim]).Trim();
-        if (fim - 1 >= 0 && IsNomeEmCaixaAlta(linhas[fim - 1]) && !LinhaTipo.IsMatch(linhas[fim - 1]))
+        if (fim - 1 >= 0 && IsNomeEmCaixaAlta(linhas[fim - 1]) && !RegexLinhaTipo.IsMatch(linhas[fim - 1]))
         {
             nome = RemoverHeading(linhas[fim - 1]).Trim() + " " + nome;
         }

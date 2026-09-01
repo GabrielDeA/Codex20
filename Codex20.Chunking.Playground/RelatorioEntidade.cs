@@ -10,13 +10,13 @@ namespace Codex20.Chunking.Playground;
 /// </summary>
 internal static class RelatorioEntidade
 {
-    private static readonly Regex FormatoNomeLimpo = new(@"^[\p{Lu}0-9][\p{Lu}0-9 ,'/()+\-\.À-ſ]{1,58}$");
+    private static readonly Regex RegexFormatoNomeLimpo = new(@"^[\p{Lu}0-9][\p{Lu}0-9 ,'/()+\-\.À-ſ]{1,58}$");
 
-    private static readonly Regex TerminaLimpo = new(@"[\.\!\?:;""'’)\]]\s*$|\bAÇÕES\s*$", RegexOptions.IgnoreCase);
+    private static readonly Regex RegexTerminaLimpo = new(@"[\.\!\?:;""'’)\]]\s*$|\bAÇÕES\s*$", RegexOptions.IgnoreCase);
 
-    private static readonly Regex AbreTabela = new("<table", RegexOptions.IgnoreCase);
+    private static readonly Regex RegexAbreTabela = new("<table", RegexOptions.IgnoreCase);
 
-    private static readonly Regex FechaTabela = new("</table>", RegexOptions.IgnoreCase);
+    private static readonly Regex RegexFechaTabela = new("</table>", RegexOptions.IgnoreCase);
 
     public static void ImprimirEstatisticas(List<Chunk> chunks)
     {
@@ -105,7 +105,7 @@ internal static class RelatorioEntidade
                 Chunk proximo = chunks[i + 1];
                 string fimAparado = c.Texto.TrimEnd();
                 string ultimaLinha = fimAparado[(fimAparado.LastIndexOf('\n') + 1)..].TrimStart();
-                bool terminaLimpo = TerminaLimpo.IsMatch(fimAparado)
+                bool terminaLimpo = RegexTerminaLimpo.IsMatch(fimAparado)
                                  || fimAparado.EndsWith('m')            // "alcance 1,5 m"
                                  || fimAparado.EndsWith('>')            // fim de tabela
                                  || ultimaLinha.StartsWith('·') || ultimaLinha.StartsWith('-')  // item de lista
@@ -128,13 +128,13 @@ internal static class RelatorioEntidade
     {
         string n = nome.Trim();
         return n.Length >= 2 && n.Length <= 60
-               && FormatoNomeLimpo.IsMatch(n.ToUpperInvariant())
+               && RegexFormatoNomeLimpo.IsMatch(n.ToUpperInvariant())
                && !n.Contains("  ");
     }
 
     private static bool IsTabelaCortada(Chunk c)
     {
-        return AbreTabela.Matches(c.Texto).Count != FechaTabela.Matches(c.Texto).Count;
+        return RegexAbreTabela.Matches(c.Texto).Count != RegexFechaTabela.Matches(c.Texto).Count;
     }
 
     private static string PrimeiraLinha(string texto, int max)

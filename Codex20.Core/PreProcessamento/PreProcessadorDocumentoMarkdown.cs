@@ -24,19 +24,19 @@ namespace Codex20.Core.PreProcessamento;
 /// </summary>
 public class PreProcessadorDocumentoMarkdown
 {
-    private static readonly Regex ComentarioNumeroPagina =
+    private static readonly Regex RegexComentarioNumeroPagina =
         new(@"<!--\s*PageNumber\s*=\s*""(?<n>\d+)""\s*-->", RegexOptions.IgnoreCase);
 
-    private static readonly Regex ComentarioQuebraPagina =
+    private static readonly Regex RegexComentarioQuebraPagina =
         new(@"<!--\s*PageBreak\s*-->", RegexOptions.IgnoreCase);
 
-    private static readonly Regex ComentarioCabecalhoRodape =
+    private static readonly Regex RegexComentarioCabecalhoRodape =
         new(@"<!--\s*Page(Header|Footer)\s*=\s*""(?<t>[^""]*)""\s*-->", RegexOptions.IgnoreCase);
 
-    private static readonly Regex QualquerComentario = new(@"<!--.*?-->", RegexOptions.Singleline);
+    private static readonly Regex RegexQualquerComentario = new(@"<!--.*?-->", RegexOptions.Singleline);
 
     /// <summary>Tags HTML inline soltas (e <c>&lt;figure&gt;&lt;/figure&gt;</c> numa linha só) que devem sumir mantendo o conteúdo.</summary>
-    private static readonly Regex TagInlineSolta =
+    private static readonly Regex RegexTagInlineSolta =
         new(@"</?(figure|figcaption|i|b|em|strong|sub|sup|u|span|mark|br|small)\s*/?>", RegexOptions.IgnoreCase);
 
     public List<BlocoDocumento> Processar(string markdown)
@@ -71,26 +71,26 @@ public class PreProcessadorDocumentoMarkdown
             string linha = linhasBrutas[i];
 
             // Página corrente: atualiza e remove o comentário.
-            Match matchPagina = ComentarioNumeroPagina.Match(linha);
+            Match matchPagina = RegexComentarioNumeroPagina.Match(linha);
             if (matchPagina.Success)
             {
                 paginaAtual = int.Parse(matchPagina.Groups["n"].Value);
-                linha = ComentarioNumeroPagina.Replace(linha, string.Empty);
+                linha = RegexComentarioNumeroPagina.Replace(linha, string.Empty);
             }
 
-            linha = ComentarioQuebraPagina.Replace(linha, string.Empty);
+            linha = RegexComentarioQuebraPagina.Replace(linha, string.Empty);
 
             // PageHeader/PageFooter: quase sempre são mobília de página ("AÇÕES", "O BRUXO")
             // e são removidos. Exceção: quando o texto tem 3+ palavras ele às vezes carrega o
             // ÚNICO cabeçalho da entidade (ex.: "SAPO GIGANTE Besta Grande, imparcial" no
             // Manual dos Monstros) — nesse caso o conteúdo é preservado como texto.
-            linha = ComentarioCabecalhoRodape.Replace(linha, m =>
+            linha = RegexComentarioCabecalhoRodape.Replace(linha, m =>
             {
                 string t = m.Groups["t"].Value.Trim();
                 return t.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 3 ? t : string.Empty;
             });
 
-            linha = QualquerComentario.Replace(linha, string.Empty);
+            linha = RegexQualquerComentario.Replace(linha, string.Empty);
 
             string aparado = linha.Trim();
 
@@ -104,13 +104,13 @@ public class PreProcessadorDocumentoMarkdown
                 while (i < linhasBrutas.Length)
                 {
                     string linhaTabela = linhasBrutas[i];
-                    Match paginaT = ComentarioNumeroPagina.Match(linhaTabela);
+                    Match paginaT = RegexComentarioNumeroPagina.Match(linhaTabela);
                     if (paginaT.Success)
                     {
                         paginaAtual = int.Parse(paginaT.Groups["n"].Value);
-                        linhaTabela = ComentarioNumeroPagina.Replace(linhaTabela, string.Empty);
+                        linhaTabela = RegexComentarioNumeroPagina.Replace(linhaTabela, string.Empty);
                     }
-                    linhaTabela = QualquerComentario.Replace(linhaTabela, string.Empty);
+                    linhaTabela = RegexQualquerComentario.Replace(linhaTabela, string.Empty);
 
                     tabela.Append(linhaTabela.TrimEnd()).Append('\n');
                     if (linhaTabela.Contains("</table>", StringComparison.OrdinalIgnoreCase))
@@ -140,7 +140,7 @@ public class PreProcessadorDocumentoMarkdown
 
                 while (++i < linhasBrutas.Length)
                 {
-                    Match paginaFig = ComentarioNumeroPagina.Match(linhasBrutas[i]);
+                    Match paginaFig = RegexComentarioNumeroPagina.Match(linhasBrutas[i]);
                     if (paginaFig.Success)
                     {
                         paginaAtual = int.Parse(paginaFig.Groups["n"].Value);
@@ -156,7 +156,7 @@ public class PreProcessadorDocumentoMarkdown
             }
 
             // Tag de figura solta / outras tags inline: remove mantendo o conteúdo.
-            aparado = TagInlineSolta.Replace(aparado, string.Empty).Trim();
+            aparado = RegexTagInlineSolta.Replace(aparado, string.Empty).Trim();
 
             if (aparado.Length == 0)
             {

@@ -7,11 +7,11 @@ namespace Codex20.Core.Chunking.RegrasEntidade;
 /// <summary>Utilitários compartilhados pelas regras de entidade dos três livros.</summary>
 internal static class AuxiliaresRegrasEntidade
 {
-    private static readonly Regex PrefixoHeading = new(@"^#{1,6}\s+");
+    private static readonly Regex RegexPrefixoHeading = new(@"^#{1,6}\s+");
 
-    private static readonly Regex QualquerHeading = new(@"^#{1,6}\s+\S");
+    private static readonly Regex RegexQualquerHeading = new(@"^#{1,6}\s+\S");
 
-    private static readonly Regex EspacosEmBranco = new(@"\s+");
+    private static readonly Regex RegexEspacosEmBranco = new(@"\s+");
 
     /// <summary>Conectivos que podem aparecer em minúsculas no meio de um nome em CAIXA ALTA.</summary>
     private static readonly HashSet<string> Conectivos =
@@ -32,9 +32,9 @@ internal static class AuxiliaresRegrasEntidade
 
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
-    public static string RemoverHeading(string linha) => PrefixoHeading.Replace(linha, string.Empty).Trim();
+    public static string RemoverHeading(string linha) => RegexPrefixoHeading.Replace(linha, string.Empty).Trim();
 
-    public static bool IsLinhaHeading(string linha) => QualquerHeading.IsMatch(linha);
+    public static bool IsLinhaHeading(string linha) => RegexQualquerHeading.IsMatch(linha);
 
     /// <summary>
     /// Heading que de fato inicia outra criatura/grupo. Exclui:
@@ -44,7 +44,7 @@ internal static class AuxiliaresRegrasEntidade
     /// </summary>
     public static bool IsHeadingFronteiraEntidade(string linha)
     {
-        if (!QualquerHeading.IsMatch(linha))
+        if (!RegexQualquerHeading.IsMatch(linha))
         {
             return false;
         }
@@ -111,7 +111,7 @@ internal static class AuxiliaresRegrasEntidade
     public static string LimparNome(string cru)
     {
         string s = RemoverHeading(cru);
-        s = EspacosEmBranco.Replace(s, " ").Trim().Trim('.', ',', ':', ';', '·', '-', '—', '*').Trim();
+        s = RegexEspacosEmBranco.Replace(s, " ").Trim().Trim('.', ',', ':', ';', '·', '-', '—', '*').Trim();
         return s;
     }
 
@@ -164,7 +164,7 @@ internal static class AuxiliaresRegrasEntidade
         {
             if (blocos[i] is BlocoParagrafo p
                 && p.Linhas.Count > 0
-                && QualquerHeading.IsMatch(p.Linhas[0])
+                && RegexQualquerHeading.IsMatch(p.Linhas[0])
                 && RemoverHeading(p.Linhas[0]).StartsWith(textoHeading, StringComparison.OrdinalIgnoreCase))
             {
                 return i;
