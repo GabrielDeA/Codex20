@@ -11,11 +11,11 @@ public class DocumentIntelligenceService(IConfiguration configuration)
     {
         string endpoint = configuration["AzureDocumentIntelligence:Endpoint"]
             ?? throw new InvalidOperationException(
-                "Configure 'AzureDocumentIntelligence:Endpoint' via 'dotnet user-secrets set' (veja README) ou a variável de ambiente AzureDocumentIntelligence__Endpoint.");
+                "Configure 'AzureDocumentIntelligence:Endpoint' via 'dotnet user-secrets set' veja ou a variável de ambiente AzureDocumentIntelligence__Endpoint.");
 
         string key = configuration["AzureDocumentIntelligence:Key"]
             ?? throw new InvalidOperationException(
-                "Configure 'AzureDocumentIntelligence:Key' via 'dotnet user-secrets set' (veja README) ou a variável de ambiente AzureDocumentIntelligence__Key.");
+                "Configure 'AzureDocumentIntelligence:Key' via 'dotnet user-secrets set' veja ou a variável de ambiente AzureDocumentIntelligence__Key.");
 
         var cliente = new DocumentIntelligenceClient(new Uri(endpoint), new AzureKeyCredential(key));
 

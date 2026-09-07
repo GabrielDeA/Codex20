@@ -14,15 +14,19 @@ if (args.Length < 1)
           --boundaries    imprime DespejarFronteirasEntidade (fronteiras entre chunks)
           --sample N      mostra as N primeiras entidades em detalhe (default 0)
           --show-fallback inclui chunks de fallback no dump de fronteiras
+          --save          grava os chunks em Codex20.Ingestion/Data/Chunks/<livro>.chunks.json
         """);
     return 1;
 }
 
-string livro = args[0].ToLowerInvariant();
+// Normaliza o apelido para um nome único: Chunk.Livro entra no Id do chunk, então "manual" e
+// "monstro" precisam produzir o mesmo valor.
+string livro = NormalizarLivro(args[0].ToLowerInvariant());
 string? caminho = args.Length >= 2 && !args[1].StartsWith("--") ? args[1] : ResolverCaminhoPadrao(livro);
 (int recorteInicio, int recorteFim) = LerRecorte(args);
 bool fronteiras = args.Contains("--boundaries");
 bool mostrarFallback = args.Contains("--show-fallback");
+bool salvar = args.Contains("--save");
 int amostra = LerInteiro(args, "--sample", 0);
 
 if (caminho is null || !File.Exists(caminho))
@@ -72,7 +76,40 @@ if (fronteiras)
     RelatorioEntidade.DespejarFronteirasEntidade(chunks, mostrarFallback);
 }
 
+if (salvar)
+{
+    string destino = ResolverCaminhoChunks(livro);
+    ArquivoChunks.Salvar(destino, chunks);
+    Console.WriteLine($"[save] {chunks.Count} chunks gravados em {destino}");
+}
+
 return 0;
+
+static string NormalizarLivro(string apelido)
+{
+    return apelido switch
+    {
+        "monstro" or "monstros" or "manual" => "monstro",
+        "jogador" or "livro" or "phb" => "jogador",
+        "mestre" or "guia" or "dmg" => "mestre",
+        _ => apelido,
+    };
+}
+
+// Destino do --save; a pasta Chunks pode ainda não existir, então subo até achar Codex20.Ingestion.
+static string ResolverCaminhoChunks(string livro)
+{
+    for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+    {
+        string ingestion = Path.Combine(dir.FullName, "Codex20.Ingestion");
+        if (Directory.Exists(ingestion))
+        {
+            return Path.Combine(ingestion, "Data", "Chunks", $"{livro}.chunks.json");
+        }
+    }
+
+    throw new DirectoryNotFoundException("Não encontrei a pasta Codex20.Ingestion para gravar os chunks.");
+}
 
 // Procura o RESULTADO_*.md revisado subindo a partir do binário até achar a raiz da solução.
 static string? ResolverCaminhoPadrao(string livro)
