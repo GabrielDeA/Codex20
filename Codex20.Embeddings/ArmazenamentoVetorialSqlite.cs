@@ -167,6 +167,24 @@ public class ArmazenamentoVetorialSqlite : IArmazenamentoVetorial
         return resultados;
     }
 
+    /// <summary>Quantos vetores cada livro tem no banco.</summary>
+    public async Task<Dictionary<string, int>> ContarPorLivroAsync()
+    {
+        using SqliteConnection conexao = await AbrirAsync();
+        using SqliteCommand comando = conexao.CreateCommand();
+        comando.CommandText = $"SELECT livro, COUNT(*) FROM {tabela} GROUP BY livro";
+
+        var contagem = new Dictionary<string, int>();
+        using SqliteDataReader leitor = await comando.ExecuteReaderAsync();
+
+        while (await leitor.ReadAsync())
+        {
+            contagem[leitor.GetString(0)] = leitor.GetInt32(1);
+        }
+
+        return contagem;
+    }
+
     private async Task<SqliteConnection> AbrirAsync()
     {
         var conexao = new SqliteConnection(stringConexao);

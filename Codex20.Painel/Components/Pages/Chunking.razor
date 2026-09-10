@@ -1,0 +1,340 @@
+@page "/"
+@using Codex20.Core.Chunking
+@inject ServicoChunking ServicoChunking
+
+<PageTitle>Chunking · Codex20</PageTitle>
+
+<h1>Chunking</h1>
+
+<div class="barra">
+    <label>
+        Livro
+        <select @bind="livro" @bind:after="AtualizarInfoArquivo" disabled="@isExecutando">
+            @foreach (string opcao in CatalogoLivros.Todos)
+            {
+                <option value="@opcao">@CatalogoLivros.NomeExibicao(opcao)</option>
+            }
+        </select>
+    </label>
+    <label>
+        Da linha
+        <input type="number" min="1" class="numero" placeholder="início" @bind="recorteInicio" />
+    </label>
+    <label>
+        Até a linha
+        <input type="number" min="1" class="numero" placeholder="fim" @bind="recorteFim" />
+    </label>
+    <button class="primario" @onclick="Executar" disabled="@isExecutando">
+        @(isExecutando ? "Rodando…" : "Rodar chunking")
+    </button>
+</div>
+
+<p class="nota">
+    Linhas em branco = livro inteiro.
+    @if (infoArquivo is not null && infoArquivo.IsExistente)
+    {
+        <text>Salvo hoje em <code>@(livro).chunks.json</code>: @infoArquivo.Quantidade.ToString("N0") chunks, gravado em @infoArquivo.ModificadoEm.ToString("dd/MM/yyyy HH:mm").</text>
+    }
+    else
+    {
+        <text>Ainda não há <code>@(livro).chunks.json</code> salvo.</text>
+    }
+</p>
+
+@if (erro is not null)
+{
+    <div class="alerta erro">@erro</div>
+}
+
+@if (resultado is not null)
+{
+    <div class="resumo">
+        <strong>@CatalogoLivros.NomeExibicao(resultado.Livro)</strong>
+        · @resultado.Blocos.ToString("N0") blocos (@resultado.BlocosParagrafo.ToString("N0") parágrafos, @resultado.BlocosTabela.ToString("N0") tabelas)
+        · @resultado.NomeStrategy
+        · @resultado.Duracao.TotalSeconds.ToString("F1") s
+        @if (resultado.IsRecortado)
+        {
+            <span class="etiqueta aviso">recorte: linhas @resultado.RecorteInicio–@resultado.RecorteFim</span>
+        }
+    </div>
+
+    <div class="numeros">
+        <div class="numero-card"><span class="valor">@resultado.Chunks.Count.ToString("N0")</span><span class="rotulo">chunks totais</span></div>
+        <div class="numero-card"><span class="valor">@resultado.ChunksEntidade.ToString("N0")</span><span class="rotulo">de entidade</span></div>
+        <div class="numero-card"><span class="valor">@resultado.ComNome.ToString("N0")</span><span class="rotulo">com nome</span></div>
+        <div class="numero-card @ClasseContagem(resultado.IndicesSemNome.Count)"><span class="valor">@resultado.IndicesSemNome.Count</span><span class="rotulo">sem nome</span></div>
+        <div class="numero-card @ClasseContagem(resultado.IndicesNomeSuspeito.Count)"><span class="valor">@resultado.PercentualNomeLimpo.ToString("F1")%</span><span class="rotulo">nome limpo (@resultado.NomesLimpos/@resultado.ChunksEntidade)</span></div>
+        <div class="numero-card"><span class="valor">@resultado.ChunksFallback.ToString("N0")</span><span class="rotulo">de fallback</span></div>
+        <div class="numero-card"><span class="valor">@resultado.Tabelas.ToString("N0")</span><span class="rotulo">tabelas (chunk próprio)</span></div>
+        <div class="numero-card @ClasseContagem(resultado.IndicesTabelaCortada.Count)"><span class="valor">@resultado.IndicesTabelaCortada.Count</span><span class="rotulo">tabelas cortadas</span></div>
+        <div class="numero-card @ClasseContagem(resultado.IndicesFronteiraSuspeita.Count)"><span class="valor">@resultado.IndicesFronteiraSuspeita.Count</span><span class="rotulo">fronteiras suspeitas</span></div>
+    </div>
+
+    <div class="barra">
+        @if (resultado.IsRecortado)
+        {
+            <span class="nota">Rodada com recorte não é salva — rode o livro inteiro para gravar o <code>.chunks.json</code>.</span>
+        }
+        else
+        {
+            <button @onclick="Salvar" disabled="@isSalvo">Salvar em @(resultado.Livro).chunks.json</button>
+            <span class="nota">@DescreverSubstituicao()</span>
+        }
+    </div>
+
+    @if (mensagem is not null)
+    {
+        <div class="alerta ok">@mensagem</div>
+    }
+
+    <div class="duas-colunas">
+        <div class="coluna-lista">
+            <div class="filtros">
+                <input type="search" placeholder="Filtrar por nome ou texto…" @bind="filtroTexto" @bind:event="oninput" @bind:after="AplicarFiltro" />
+                <select @bind="filtroTipo" @bind:after="AplicarFiltro">
+                    <option value="todos">Todos</option>
+                    <option value="entidades">Só entidades</option>
+                    <option value="fallback">Só fallback</option>
+                    <option value="problemas">Com problema (@resultado.QuantidadeComProblema)</option>
+                </select>
+                <span class="nota">@indicesVisiveis.Count.ToString("N0")</span>
+            </div>
+            <div class="rolagem">
+                <table class="tabela-chunks">
+                    <thead>
+                        <tr>
+                            <th class="num">#</th>
+                            <th>Entidade</th>
+                            <th>Página</th>
+                            <th class="num">Chars</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <Virtualize Items="indicesVisiveis" Context="indice" ItemSize="30" SpacerElement="tr">
+                            <tr @key="indice" class="@ClasseLinha(indice)" @onclick="() => Selecionar(indice)">
+                                <td class="num suave">@indice</td>
+                                <td class="titulo">
+                                    @if (resultado.Chunks[indice].IsFallback)
+                                    {
+                                        <span class="suave">@FormatoChunk.Inicio(resultado.Chunks[indice], 90)</span>
+                                    }
+                                    else
+                                    {
+                                        @FormatoChunk.Titulo(resultado.Chunks[indice])
+                                    }
+                                </td>
+                                <td class="suave">@FormatoChunk.Paginas(resultado.Chunks[indice])</td>
+                                <td class="num suave">@resultado.Chunks[indice].Texto.Length.ToString("N0")</td>
+                            </tr>
+                        </Virtualize>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="coluna-detalhe">
+            @if (indiceSelecionado is null)
+            {
+                <p class="nota">Clique num chunk para ver o texto completo. Chunks com problema têm uma faixa vermelha à esquerda.</p>
+            }
+            else
+            {
+                <div class="navegacao">
+                    <button @onclick="Anterior" disabled="@(indiceSelecionado == 0)">◀ Anterior</button>
+                    <span class="nota">chunk @indiceSelecionado de @(resultado.Chunks.Count - 1) (ordem do livro)</span>
+                    <button @onclick="Proximo" disabled="@(indiceSelecionado == resultado.Chunks.Count - 1)">Próximo ▶</button>
+                </div>
+                @foreach (string problema in resultado.DescreverProblemas(indiceSelecionado.Value))
+                {
+                    <div class="alerta aviso">@problema</div>
+                }
+                <CartaoChunk Chunk="resultado.Chunks[indiceSelecionado.Value]" />
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private string livro = "monstro";
+    private int? recorteInicio;
+    private int? recorteFim;
+    private bool isExecutando;
+    private bool isSalvo;
+    private string? erro;
+    private string? mensagem;
+    private InfoArquivoChunks? infoArquivo;
+    private InfoArquivoChunks? infoAntesDeSalvar;
+    private ResultadoChunking? resultado;
+    private List<int> indicesVisiveis = new();
+    private string filtroTexto = string.Empty;
+    private string filtroTipo = "todos";
+    private int? indiceSelecionado;
+
+    protected override void OnInitialized()
+    {
+        resultado = ServicoChunking.UltimoResultado;
+        if (resultado is not null)
+        {
+            livro = resultado.Livro;
+            infoAntesDeSalvar = ServicoChunking.LerInfoArquivo(resultado.Livro);
+            AplicarFiltro();
+        }
+
+        AtualizarInfoArquivo();
+    }
+
+    private void AtualizarInfoArquivo()
+    {
+        infoArquivo = ServicoChunking.LerInfoArquivo(livro);
+    }
+
+    private async Task Executar()
+    {
+        erro = null;
+        mensagem = null;
+        isExecutando = true;
+
+        string livroEscolhido = livro;
+        int inicio = recorteInicio ?? 0;
+        int fim = recorteFim ?? 0;
+
+        try
+        {
+            // Fora do circuito do Blazor para a tela conseguir mostrar "Rodando…" enquanto isso.
+            resultado = await Task.Run(() => ServicoChunking.Executar(livroEscolhido, inicio, fim));
+            infoAntesDeSalvar = ServicoChunking.LerInfoArquivo(livroEscolhido);
+            isSalvo = false;
+            indiceSelecionado = null;
+            AplicarFiltro();
+        }
+        catch (Exception excecao)
+        {
+            erro = excecao.Message;
+        }
+        finally
+        {
+            isExecutando = false;
+        }
+    }
+
+    private void Salvar()
+    {
+        if (resultado is null)
+        {
+            return;
+        }
+
+        try
+        {
+            string destino = ServicoChunking.Salvar(resultado);
+            isSalvo = true;
+            mensagem = $"{resultado.Chunks.Count:N0} chunks gravados em {destino}";
+            AtualizarInfoArquivo();
+        }
+        catch (Exception excecao)
+        {
+            erro = excecao.Message;
+        }
+    }
+
+    private string DescreverSubstituicao()
+    {
+        if (isSalvo)
+        {
+            return "Gravado.";
+        }
+
+        if (infoAntesDeSalvar is null || !infoAntesDeSalvar.IsExistente)
+        {
+            return "Cria o arquivo.";
+        }
+
+        return $"Substitui o arquivo atual ({infoAntesDeSalvar.Quantidade:N0} → {resultado!.Chunks.Count:N0} chunks). "
+            + "O banco vetorial só muda quando você gerar os embeddings de novo.";
+    }
+
+    private void AplicarFiltro()
+    {
+        indicesVisiveis = new List<int>();
+        if (resultado is null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < resultado.Chunks.Count; i++)
+        {
+            if (IsVisivel(resultado.Chunks[i], i))
+            {
+                indicesVisiveis.Add(i);
+            }
+        }
+    }
+
+    private bool IsVisivel(Chunk chunk, int indice)
+    {
+        if (filtroTipo == "entidades" && chunk.IsFallback)
+        {
+            return false;
+        }
+
+        if (filtroTipo == "fallback" && !chunk.IsFallback)
+        {
+            return false;
+        }
+
+        if (filtroTipo == "problemas" && !resultado!.IsComProblema(indice))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(filtroTexto))
+        {
+            return true;
+        }
+
+        if (chunk.NomeEntidade is not null && chunk.NomeEntidade.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return chunk.Texto.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void Selecionar(int indice)
+    {
+        indiceSelecionado = indice;
+    }
+
+    private void Anterior()
+    {
+        if (indiceSelecionado > 0)
+        {
+            indiceSelecionado--;
+        }
+    }
+
+    private void Proximo()
+    {
+        if (resultado is not null && indiceSelecionado < resultado.Chunks.Count - 1)
+        {
+            indiceSelecionado++;
+        }
+    }
+
+    private string ClasseLinha(int indice)
+    {
+        string classe = indice == indiceSelecionado ? "selecionado" : string.Empty;
+        if (resultado!.IsComProblema(indice))
+        {
+            classe += " problema";
+        }
+
+        return classe;
+    }
+
+    private static string ClasseContagem(int problemas)
+    {
+        return problemas == 0 ? "bom" : "ruim";
+    }
+}

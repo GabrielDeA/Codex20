@@ -1,0 +1,46 @@
+@using Codex20.Core.Chunking
+
+<article class="cartao-chunk @(IsCompacto ? "compacto" : "")">
+    <header>
+        @if (Posicao is not null)
+        {
+            <span class="suave">#@Posicao</span>
+        }
+        <strong>@FormatoChunk.Titulo(Chunk)</strong>
+        @if (Similaridade is not null)
+        {
+            <span class="similaridade" title="Similaridade de cosseno">@Similaridade.Value.ToString("F4")</span>
+        }
+        @if (Chunk.IsFallback)
+        {
+            <span class="etiqueta">fallback</span>
+        }
+    </header>
+    <div class="meta">
+        @CatalogoLivros.NomeExibicao(Chunk.Livro) · @FormatoChunk.Paginas(Chunk) · @Chunk.Texto.Length.ToString("N0") caracteres
+    </div>
+    <pre class="texto">@Chunk.Texto</pre>
+    <footer class="meta">
+        Id @Chunk.Id
+        @if (!string.IsNullOrEmpty(Chunk.NomeStrategy))
+        {
+            <text> · @Chunk.NomeStrategy</text>
+        }
+    </footer>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public Chunk Chunk { get; set; } = null!;
+
+    /// <summary>Preenchida só nos resultados de busca.</summary>
+    [Parameter]
+    public double? Similaridade { get; set; }
+
+    [Parameter]
+    public int? Posicao { get; set; }
+
+    /// <summary>Limita a altura do texto (com rolagem) — para listas de vários cartões.</summary>
+    [Parameter]
+    public bool IsCompacto { get; set; }
+}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["Codex20.Painel.styles.css"]" />
+    <ImportMap />
+    <HeadOutlet @rendermode="modoInterativo" />
+</head>
+
+<body>
+    <Routes @rendermode="modoInterativo" />
+    <ReconnectModal />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>
+
+@code {
+    // Sem pré-renderização: cada página carrega uma vez só (ler os JSONs e o banco em dobro não
+    // compensa numa ferramenta local).
+    private static readonly IComponentRenderMode modoInterativo = new InteractiveServerRenderMode(prerender: false);
+}

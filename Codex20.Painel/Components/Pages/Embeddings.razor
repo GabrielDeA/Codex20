@@ -1,0 +1,280 @@
+@page "/embeddings"
+@implements IDisposable
+@using System.Diagnostics
+@using Codex20.Core.Chunking
+@using Codex20.Core.Embeddings
+@inject ServicoChunking ServicoChunking
+@inject ServicoEmbeddings ServicoEmbeddings
+
+<PageTitle>Embeddings · Codex20</PageTitle>
+
+<h1>Embeddings</h1>
+
+@if (!ServicoEmbeddings.IsConfigurado)
+{
+    <div class="alerta erro">
+        @ServicoEmbeddings.ErroConfiguracao<br />
+        O Painel lê os mesmos user-secrets do Embeddings.Playground — veja <code>Codex20.Embeddings/README.md</code> e reinicie o Painel.
+    </div>
+}
+
+<h2>Situação</h2>
+
+<table class="tabela-status">
+    <thead>
+        <tr>
+            <th>Livro</th>
+            <th class="num">No .chunks.json</th>
+            <th>Gravado em</th>
+            <th class="num">No banco</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (string opcao in LivrosDaTabela())
+        {
+            InfoArquivoChunks? info = infos.GetValueOrDefault(opcao);
+            <tr>
+                <td>@CatalogoLivros.NomeExibicao(opcao)</td>
+                <td class="num">@(info is not null && info.IsExistente ? info.Quantidade.ToString("N0") : "—")</td>
+                <td class="suave">@(info is not null && info.IsExistente ? info.ModificadoEm.ToString("dd/MM/yyyy HH:mm") : "—")</td>
+                <td class="num">@(vetoresPorLivro.TryGetValue(opcao, out int vetores) ? vetores.ToString("N0") : "—")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+<p class="nota">
+    O banco costuma ter alguns a menos que o JSON: texto repetido dentro do livro é gravado uma vez só.
+    Modelo: <code>@ServicoEmbeddings.Modelo</code> · banco: <code>@CaminhosDados.Banco()</code>
+</p>
+
+<h2>Gerar</h2>
+
+<div class="barra">
+    <label>
+        Livro
+        <select @bind="livro" disabled="@isGerando">
+            @foreach (string opcao in CatalogoLivros.Todos)
+            {
+                <option value="@opcao">@CatalogoLivros.NomeExibicao(opcao)</option>
+            }
+        </select>
+    </label>
+    <label>
+        Chunks por chamada
+        <input type="number" min="1" max="2048" class="numero" @bind="tamanhoLote" disabled="@isGerando" />
+    </label>
+    <label>
+        Limite (teste barato)
+        <input type="number" min="1" class="numero" placeholder="todos" @bind="limite" disabled="@isGerando" />
+    </label>
+    <button class="primario" @onclick="PedirConfirmacao" disabled="@(isGerando || !ServicoEmbeddings.IsConfigurado)">Gerar embeddings…</button>
+</div>
+
+@if (erro is not null)
+{
+    <div class="alerta erro">@erro</div>
+}
+
+@if (confirmacao is not null)
+{
+    <div class="alerta aviso">
+        <p>@confirmacao</p>
+        <button class="primario" @onclick="Gerar">Confirmar</button>
+        <button @onclick="Desistir">Voltar</button>
+    </div>
+}
+
+@if (isGerando || log.Count > 0)
+{
+    <div class="progresso">
+        <progress max="@Math.Max(total, 1)" value="@feitos"></progress>
+        <span class="nota">@feitos.ToString("N0")/@total.ToString("N0")</span>
+        @if (isGerando)
+        {
+            <button @onclick="Cancelar" disabled="@(cancelamento is not null && cancelamento.IsCancellationRequested)">Cancelar</button>
+        }
+    </div>
+    <pre class="log">@string.Join("\n", log)</pre>
+}
+
+@code {
+    private string livro = "monstro";
+    private int tamanhoLote = 32;
+    private int? limite;
+    private bool isGerando;
+    private string? erro;
+    private string? confirmacao;
+    private List<Chunk> chunksPendentes = new();
+    private int total;
+    private int feitos;
+    private List<string> log = new();
+    private CancellationTokenSource? cancelamento;
+    private Dictionary<string, InfoArquivoChunks> infos = new();
+    private Dictionary<string, int> vetoresPorLivro = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AtualizarSituacao();
+    }
+
+    private async Task AtualizarSituacao()
+    {
+        try
+        {
+            infos = new Dictionary<string, InfoArquivoChunks>();
+            foreach (string opcao in CatalogoLivros.Todos)
+            {
+                infos[opcao] = ServicoChunking.LerInfoArquivo(opcao);
+            }
+
+            vetoresPorLivro = await ServicoEmbeddings.ContarVetoresPorLivroAsync();
+        }
+        catch (Exception excecao)
+        {
+            erro = excecao.Message;
+        }
+    }
+
+    /// <summary>Os três livros, mais qualquer outro que apareça no banco (resto de rodada antiga).</summary>
+    private List<string> LivrosDaTabela()
+    {
+        var livros = new List<string>(CatalogoLivros.Todos);
+        foreach (string noBanco in vetoresPorLivro.Keys)
+        {
+            if (!livros.Contains(noBanco))
+            {
+                livros.Add(noBanco);
+            }
+        }
+
+        return livros;
+    }
+
+    private void PedirConfirmacao()
+    {
+        erro = null;
+        try
+        {
+            chunksPendentes = ServicoEmbeddings.LerChunksParaEmbedding(livro);
+        }
+        catch (Exception excecao)
+        {
+            erro = excecao.Message;
+            confirmacao = null;
+            return;
+        }
+
+        int disponiveis = chunksPendentes.Count;
+        bool isParcial = limite > 0 && limite < disponiveis;
+        if (isParcial)
+        {
+            chunksPendentes = chunksPendentes.Take(limite!.Value).ToList();
+        }
+
+        int lote = Math.Max(1, tamanhoLote);
+        int chamadas = (chunksPendentes.Count + lote - 1) / lote;
+        int noBanco = vetoresPorLivro.GetValueOrDefault(livro);
+
+        confirmacao = $"Vai chamar a API {chamadas} vez(es) para {chunksPendentes.Count:N0} chunks do {CatalogoLivros.NomeExibicao(livro)} "
+            + $"e depois substituir os {noBanco:N0} vetores que o banco tem desse livro.";
+
+        if (isParcial)
+        {
+            confirmacao += $" Atenção: com o limite, o livro fica no banco só com esses {chunksPendentes.Count:N0} de {disponiveis:N0} chunks.";
+        }
+    }
+
+    private void Desistir()
+    {
+        confirmacao = null;
+        chunksPendentes = new List<Chunk>();
+    }
+
+    private async Task Gerar()
+    {
+        confirmacao = null;
+        erro = null;
+        log = new List<string>();
+        List<Chunk> chunks = chunksPendentes;
+        int lote = Math.Max(1, tamanhoLote);
+        total = chunks.Count;
+        feitos = 0;
+        isGerando = true;
+        cancelamento = new CancellationTokenSource();
+
+        var relogio = Stopwatch.StartNew();
+        var embeddings = new List<ChunkEmbedding>();
+        Registrar($"[embedding] modelo {ServicoEmbeddings.Modelo} — {chunks.Count:N0} chunks de {livro}");
+
+        try
+        {
+            for (int inicio = 0; inicio < chunks.Count; inicio += lote)
+            {
+                if (cancelamento.IsCancellationRequested)
+                {
+                    Registrar("[cancelado] nada foi gravado — o banco continua como estava.");
+                    return;
+                }
+
+                List<Chunk> fatia = chunks.Skip(inicio).Take(lote).ToList();
+                List<float[]> vetores = await ServicoEmbeddings.GerarVetoresAsync(fatia.Select(c => c.Texto).ToList());
+
+                for (int i = 0; i < fatia.Count; i++)
+                {
+                    embeddings.Add(new ChunkEmbedding
+                    {
+                        ChunkId = fatia[i].Id,
+                        Vetor = vetores[i],
+                        Modelo = ServicoEmbeddings.Modelo,
+                    });
+                }
+
+                feitos = embeddings.Count;
+                Registrar($"[embedding] {feitos:N0}/{total:N0} chunks ({relogio.Elapsed.TotalSeconds:F1}s)");
+                StateHasChanged();
+            }
+
+            int gravados = await ServicoEmbeddings.SalvarAsync(chunks, embeddings);
+            relogio.Stop();
+
+            string repetidos = gravados < embeddings.Count
+                ? $" ({embeddings.Count - gravados} de texto repetido gravado(s) uma vez só)"
+                : string.Empty;
+            Registrar($"[save] {gravados:N0} vetores gravados{repetidos} ({relogio.Elapsed.TotalSeconds:F1}s)");
+        }
+        catch (Exception excecao)
+        {
+            Registrar($"[erro] {excecao.Message}");
+            Registrar("Nada foi gravado — o banco continua como estava.");
+        }
+        finally
+        {
+            isGerando = false;
+            chunksPendentes = new List<Chunk>();
+            await AtualizarSituacao();
+        }
+    }
+
+    private void Cancelar()
+    {
+        if (cancelamento is not null)
+        {
+            cancelamento.Cancel();
+            Registrar("[cancelado] parando depois da chamada em andamento…");
+        }
+    }
+
+    private void Registrar(string linha)
+    {
+        log.Add(linha);
+    }
+
+    public void Dispose()
+    {
+        if (cancelamento is not null)
+        {
+            cancelamento.Cancel();
+            cancelamento.Dispose();
+        }
+    }
+}

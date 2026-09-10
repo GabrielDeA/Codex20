@@ -1,0 +1,28 @@
+{
+  "profiles": {
+    "buscar": {
+      "commandName": "Project",
+      "commandLineArgs": "monstro --buscar \"barbaro pontos de vida\""
+    },
+    "buscar (top 10)": {
+      "commandName": "Project",
+      "commandLineArgs": "monstro --buscar \"quantos pontos de vida tem um aarakocra\" --top 10"
+    },
+    "monstro (teste barato)": {
+      "commandName": "Project",
+      "commandLineArgs": "monstro --limite 50"
+    },
+    "monstro": {
+      "commandName": "Project",
+      "commandLineArgs": "monstro"
+    },
+    "jogador": {
+      "commandName": "Project",
+      "commandLineArgs": "jogador"
+    },
+    "mestre": {
+      "commandName": "Project",
+      "commandLineArgs": "mestre"
+    }
+  }
+}

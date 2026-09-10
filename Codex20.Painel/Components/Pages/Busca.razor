@@ -1,0 +1,87 @@
+@page "/busca"
+@using System.Diagnostics
+@using Codex20.Core.Embeddings
+@inject ServicoEmbeddings ServicoEmbeddings
+
+<PageTitle>Busca · Codex20</PageTitle>
+
+<h1>Busca</h1>
+
+@if (!ServicoEmbeddings.IsConfigurado)
+{
+    <div class="alerta erro">
+        @ServicoEmbeddings.ErroConfiguracao<br />
+        O Painel lê os mesmos user-secrets do Embeddings.Playground — veja <code>Codex20.Embeddings/README.md</code> e reinicie o Painel.
+    </div>
+}
+
+<form class="barra" @onsubmit="Buscar">
+    <label class="expande">
+        Consulta
+        <input type="search" placeholder="ex.: pontos de vida do aarakocra" @bind="consulta" @bind:event="oninput" />
+    </label>
+    <label>
+        Resultados
+        <input type="number" min="1" max="50" class="numero" @bind="top" />
+    </label>
+    <button type="submit" class="primario" disabled="@(isBuscando || !ServicoEmbeddings.IsConfigurado)">
+        @(isBuscando ? "Buscando…" : "Buscar")
+    </button>
+</form>
+
+<p class="nota">Busca no banco inteiro (os três livros), pela similaridade de cosseno entre a consulta e cada chunk.</p>
+
+@if (erro is not null)
+{
+    <div class="alerta erro">@erro</div>
+}
+
+@if (resultados is not null)
+{
+    <p class="nota">
+        @resultados.Count resultado(s) para “@consultaFeita” · @duracao.TotalSeconds.ToString("F1") s · modelo <code>@ServicoEmbeddings.Modelo</code>
+    </p>
+
+    @for (int i = 0; i < resultados.Count; i++)
+    {
+        ResultadoBusca achado = resultados[i];
+        <CartaoChunk Chunk="achado.Chunk" Similaridade="achado.Similaridade" Posicao="i + 1" IsCompacto="true" />
+    }
+}
+
+@code {
+    private string consulta = string.Empty;
+    private string consultaFeita = string.Empty;
+    private int top = 5;
+    private bool isBuscando;
+    private string? erro;
+    private List<ResultadoBusca>? resultados;
+    private TimeSpan duracao;
+
+    private async Task Buscar()
+    {
+        if (string.IsNullOrWhiteSpace(consulta) || isBuscando)
+        {
+            return;
+        }
+
+        erro = null;
+        isBuscando = true;
+        var relogio = Stopwatch.StartNew();
+
+        try
+        {
+            resultados = await ServicoEmbeddings.BuscarAsync(consulta.Trim(), Math.Clamp(top, 1, 50));
+            consultaFeita = consulta.Trim();
+            duracao = relogio.Elapsed;
+        }
+        catch (Exception excecao)
+        {
+            erro = excecao.Message;
+        }
+        finally
+        {
+            isBuscando = false;
+        }
+    }
+}
