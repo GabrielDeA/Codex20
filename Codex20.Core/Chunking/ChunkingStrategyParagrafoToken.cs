@@ -49,18 +49,14 @@ public class ChunkingStrategyParagrafoToken : IChunkingStrategy
             List<string> paragrafos = TextChunker.SplitPlainTextParagraphs(
                 linhas, _maxTokensPorChunk, _tokensSobreposicao);
 
-            int? paginaInicio = sequencia[0].Pagina;
-            int? paginaFim = null;
-            foreach (BlocoParagrafo p in sequencia)
-            {
-                if (p.Pagina is not null)
-                {
-                    paginaFim = p.Pagina;
-                }
-            }
+            // Cada pedaço recebe só as páginas que ele cobre — não a faixa da sequência inteira,
+            // que pode ter várias páginas quando não há tabela para interromper o texto.
+            var paginasDaSequencia = new PaginasDaSequencia(sequencia);
 
             foreach (string paragrafo in paragrafos)
             {
+                (int? paginaInicio, int? paginaFim) = paginasDaSequencia.Localizar(paragrafo);
+
                 resultado.Add(new Chunk
                 {
                     Texto = paragrafo,

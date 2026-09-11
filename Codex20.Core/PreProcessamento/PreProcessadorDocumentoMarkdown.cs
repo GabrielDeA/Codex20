@@ -7,11 +7,11 @@ namespace Codex20.Core.PreProcessamento;
 /// Converte o Markdown cru do Azure Document Intelligence numa lista de
 /// <see cref="BlocoDocumento"/> limpa e reaproveitável por qualquer livro:
 /// <list type="bullet">
-///   <item>rastreia o número de página a partir de <c>&lt;!-- PageNumber="N" --&gt;</c>
-///         e remove o comentário;</item>
+///   <item>descobre a página de cada linha a partir de <c>&lt;!-- PageBreak --&gt;</c> e
+///         <c>&lt;!-- PageNumber="N" --&gt;</c> (ver <see cref="CalcularPaginaPorLinha"/>)
+///         e remove os comentários;</item>
 ///   <item>remove ruído conhecido do Document Intelligence
-///         (<c>&lt;!-- PageBreak --&gt;</c>, <c>&lt;!-- PageHeader="..." --&gt;</c>,
-///         <c>&lt;!-- PageFooter="..." --&gt;</c>);</item>
+///         (<c>&lt;!-- PageHeader="..." --&gt;</c>, <c>&lt;!-- PageFooter="..." --&gt;</c>);</item>
 ///   <item>descarta cada bloco <c>&lt;figure&gt;...&lt;/figure&gt;</c> inteiro (ilustração,
 ///         legenda, rótulo de miniatura) — o Markdown revisado não deixa conteúdo de
 ///         entidade dentro de figura. Também remove tags HTML inline soltas;</item>
@@ -44,11 +44,11 @@ public class PreProcessadorDocumentoMarkdown
         ArgumentNullException.ThrowIfNull(markdown);
 
         string[] linhasBrutas = markdown.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        int?[] paginaPorLinha = CalcularPaginaPorLinha(linhasBrutas);
 
         var blocos = new List<BlocoDocumento>();
         var paragrafo = new List<string>();
-        int paginaAtual = 0;
-        int paginaParagrafo = 0;
+        int? paginaParagrafo = null;
 
         void DescarregarParagrafo()
         {
@@ -60,7 +60,7 @@ public class PreProcessadorDocumentoMarkdown
             blocos.Add(new BlocoParagrafo
             {
                 Linhas = new List<string>(paragrafo),
-                Pagina = paginaParagrafo > 0 ? paginaParagrafo : null,
+                Pagina = paginaParagrafo,
             });
 
             paragrafo.Clear();
@@ -69,16 +69,6 @@ public class PreProcessadorDocumentoMarkdown
         for (int i = 0; i < linhasBrutas.Length; i++)
         {
             string linha = linhasBrutas[i];
-
-            // Página corrente: atualiza e remove o comentário.
-            Match matchPagina = RegexComentarioNumeroPagina.Match(linha);
-            if (matchPagina.Success)
-            {
-                paginaAtual = int.Parse(matchPagina.Groups["n"].Value);
-                linha = RegexComentarioNumeroPagina.Replace(linha, string.Empty);
-            }
-
-            linha = RegexComentarioQuebraPagina.Replace(linha, string.Empty);
 
             // PageHeader/PageFooter: quase sempre são mobília de página ("AÇÕES", "O BRUXO")
             // e são removidos. Exceção: quando o texto tem 3+ palavras ele às vezes carrega o
@@ -90,6 +80,7 @@ public class PreProcessadorDocumentoMarkdown
                 return t.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 3 ? t : string.Empty;
             });
 
+            // PageNumber, PageBreak e qualquer outro comentário: a página já foi calculada.
             linha = RegexQualquerComentario.Replace(linha, string.Empty);
 
             string aparado = linha.Trim();
@@ -100,17 +91,10 @@ public class PreProcessadorDocumentoMarkdown
                 DescarregarParagrafo();
 
                 var tabela = new StringBuilder();
-                int paginaTabela = paginaAtual;
+                int? paginaTabela = paginaPorLinha[i];
                 while (i < linhasBrutas.Length)
                 {
-                    string linhaTabela = linhasBrutas[i];
-                    Match paginaT = RegexComentarioNumeroPagina.Match(linhaTabela);
-                    if (paginaT.Success)
-                    {
-                        paginaAtual = int.Parse(paginaT.Groups["n"].Value);
-                        linhaTabela = RegexComentarioNumeroPagina.Replace(linhaTabela, string.Empty);
-                    }
-                    linhaTabela = RegexQualquerComentario.Replace(linhaTabela, string.Empty);
+                    string linhaTabela = RegexQualquerComentario.Replace(linhasBrutas[i], string.Empty);
 
                     tabela.Append(linhaTabela.TrimEnd()).Append('\n');
                     if (linhaTabela.Contains("</table>", StringComparison.OrdinalIgnoreCase))
@@ -123,7 +107,7 @@ public class PreProcessadorDocumentoMarkdown
                 blocos.Add(new BlocoTabela
                 {
                     Html = tabela.ToString().Trim(),
-                    Pagina = paginaTabela > 0 ? paginaTabela : null,
+                    Pagina = paginaTabela,
                 });
                 continue;
             }
@@ -132,7 +116,6 @@ public class PreProcessadorDocumentoMarkdown
             // rótulo de miniatura, iniciais de revisor. O Markdown já foi revisado para tirar
             // os poucos casos em que o Document Intelligence tinha embrulhado uma ficha de
             // criatura ou um bloco de regras numa figura, então o bloco inteiro é descartado.
-            // Só o número de página que aparece lá dentro é aproveitado.
             if (aparado.StartsWith("<figure", StringComparison.OrdinalIgnoreCase)
                 && !aparado.Contains("</figure>", StringComparison.OrdinalIgnoreCase))
             {
@@ -140,12 +123,6 @@ public class PreProcessadorDocumentoMarkdown
 
                 while (++i < linhasBrutas.Length)
                 {
-                    Match paginaFig = RegexComentarioNumeroPagina.Match(linhasBrutas[i]);
-                    if (paginaFig.Success)
-                    {
-                        paginaAtual = int.Parse(paginaFig.Groups["n"].Value);
-                    }
-
                     if (linhasBrutas[i].Contains("</figure>", StringComparison.OrdinalIgnoreCase))
                     {
                         break;
@@ -166,7 +143,7 @@ public class PreProcessadorDocumentoMarkdown
 
             if (paragrafo.Count == 0)
             {
-                paginaParagrafo = paginaAtual;
+                paginaParagrafo = paginaPorLinha[i];
             }
 
             paragrafo.Add(aparado);
@@ -174,5 +151,65 @@ public class PreProcessadorDocumentoMarkdown
 
         DescarregarParagrafo();
         return blocos;
+    }
+
+    /// <summary>
+    /// Página de cada linha do Markdown. O Document Intelligence separa as páginas com
+    /// <c>&lt;!-- PageBreak --&gt;</c> e escreve o número impresso (<c>&lt;!-- PageNumber="N" --&gt;</c>)
+    /// onde ele aparece na página — nos três livros, quase sempre no rodapé, logo antes do
+    /// PageBreak. Por isso o número vale para a página inteira em que está, e não para o que vem
+    /// depois dele (ler assim deixava todo o conteúdo uma página atrás).
+    /// Página sem número impresso (ilustração, abertura de capítulo) recebe o da anterior + 1 —
+    /// conferido nos três livros: entre duas páginas numeradas a contagem nunca pula. As páginas
+    /// do começo do livro, antes da primeira numerada, ficam sem página: ali a contagem física não
+    /// bate com a impressa (no Manual dos Monstros a 5ª página do PDF é a "4").
+    /// </summary>
+    private static int?[] CalcularPaginaPorLinha(string[] linhas)
+    {
+        var paginas = new int?[linhas.Length];
+        int? paginaAnterior = null;
+        int inicioPagina = 0;
+
+        while (inicioPagina < linhas.Length)
+        {
+            // A página vai até a linha do PageBreak, inclusive (ou até o fim do arquivo).
+            int fimPagina = inicioPagina;
+            while (fimPagina < linhas.Length && !RegexComentarioQuebraPagina.IsMatch(linhas[fimPagina]))
+            {
+                fimPagina++;
+            }
+
+            fimPagina = Math.Min(fimPagina + 1, linhas.Length);
+
+            int? pagina = AcharNumeroPagina(linhas, inicioPagina, fimPagina);
+            if (pagina is null && paginaAnterior is not null)
+            {
+                pagina = paginaAnterior + 1;
+            }
+
+            for (int i = inicioPagina; i < fimPagina; i++)
+            {
+                paginas[i] = pagina;
+            }
+
+            paginaAnterior = pagina;
+            inicioPagina = fimPagina;
+        }
+
+        return paginas;
+    }
+
+    private static int? AcharNumeroPagina(string[] linhas, int inicio, int fim)
+    {
+        for (int i = inicio; i < fim; i++)
+        {
+            Match match = RegexComentarioNumeroPagina.Match(linhas[i]);
+            if (match.Success)
+            {
+                return int.Parse(match.Groups["n"].Value);
+            }
+        }
+
+        return null;
     }
 }

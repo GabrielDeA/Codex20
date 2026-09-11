@@ -9,8 +9,9 @@ namespace Codex20.Core.PreProcessamento;
 public abstract class BlocoDocumento
 {
     /// <summary>
-    /// Número da página (do PDF de origem) em que o bloco começa, quando conhecido.
-    /// Derivado dos comentários <c>&lt;!-- PageNumber="N" --&gt;</c> do Document Intelligence.
+    /// Número impresso da página em que o bloco começa, quando conhecido. Derivado dos
+    /// comentários <c>&lt;!-- PageBreak --&gt;</c> e <c>&lt;!-- PageNumber="N" --&gt;</c> do
+    /// Document Intelligence — ver <see cref="PreProcessadorDocumentoMarkdown"/>.
     /// </summary>
     public int? Pagina { get; init; }
 
