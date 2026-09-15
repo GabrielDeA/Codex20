@@ -7,9 +7,13 @@
             <span class="suave">#@Posicao</span>
         }
         <strong>@FormatoChunk.Titulo(Chunk)</strong>
-        @if (Similaridade is not null)
+        @if (Pontuacao is not null)
         {
-            <span class="similaridade" title="Similaridade de cosseno">@Similaridade.Value.ToString("F4")</span>
+            <span class="pontuacao" title="@RotuloPontuacao">@Pontuacao.Value.ToString("F4")</span>
+        }
+        @if (!string.IsNullOrEmpty(DetalhePontuacao))
+        {
+            <span class="detalhe-pontuacao">@DetalhePontuacao</span>
         }
         @if (Chunk.IsFallback)
         {
@@ -33,9 +37,17 @@
     [Parameter, EditorRequired]
     public Chunk Chunk { get; set; } = null!;
 
-    /// <summary>Preenchida só nos resultados de busca.</summary>
+    /// <summary>Preenchida só nos resultados de busca, na escala da estratégia que buscou.</summary>
     [Parameter]
-    public double? Similaridade { get; set; }
+    public double? Pontuacao { get; set; }
+
+    /// <summary>Como ler a <see cref="Pontuacao"/> — vai no title, porque cada estratégia tem sua escala.</summary>
+    [Parameter]
+    public string? RotuloPontuacao { get; set; }
+
+    /// <summary>De onde veio a colocação numa fusão, ex. "cosseno #3 · bm25 #1".</summary>
+    [Parameter]
+    public string? DetalhePontuacao { get; set; }
 
     [Parameter]
     public int? Posicao { get; set; }

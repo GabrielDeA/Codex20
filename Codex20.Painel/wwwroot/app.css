@@ -122,6 +122,14 @@ label.expande {
     min-width: 18rem;
 }
 
+/* O label padrão empilha rótulo sobre campo; checkbox fica ao lado do texto. */
+label.linha {
+    flex-direction: row;
+    align-items: center;
+    gap: .4rem;
+    padding-bottom: .45rem;
+}
+
 input, select, button {
     font: inherit;
 }
@@ -423,7 +431,7 @@ th.num, td.num {
     font-size: 1.02rem;
 }
 
-.similaridade {
+.pontuacao {
     padding: 0 .4rem;
     border-radius: 4px;
     background: var(--destaque-suave);
@@ -461,6 +469,52 @@ pre.texto {
     font-size: .72rem;
 }
 
+.detalhe-pontuacao {
+    color: var(--texto-suave);
+    font-family: var(--mono);
+    font-size: .75rem;
+}
+
+/* ── Busca ──────────────────────────────── */
+
+/* Colunas automáticas: uma estratégia a mais não mexe no CSS. */
+.comparacao {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(22rem, 1fr);
+    gap: 1rem;
+    align-items: start;
+    margin-top: .75rem;
+    overflow-x: auto;
+    padding-bottom: .5rem;
+}
+
+.coluna-estrategia {
+    min-width: 0;
+}
+
+.coluna-estrategia > header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .5rem;
+    padding: .5rem .75rem;
+    margin-bottom: .6rem;
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+}
+
+.tempo {
+    padding: 0 .4rem;
+    border-radius: 4px;
+    background: var(--fundo);
+    color: var(--texto-suave);
+    font-family: var(--mono);
+    font-size: .8rem;
+    font-variant-numeric: tabular-nums;
+}
+
 /* ── Embeddings ─────────────────────────── */
 
 .progresso {
@@ -495,6 +549,11 @@ pre.log {
     .coluna-detalhe {
         position: static;
         max-height: none;
+    }
+
+    .comparacao {
+        grid-auto-flow: row;
+        grid-auto-columns: auto;
     }
 }
 

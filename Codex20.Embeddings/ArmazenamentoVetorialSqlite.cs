@@ -22,22 +22,61 @@ public class ArmazenamentoVetorialSqlite : IArmazenamentoVetorial
 
     public ArmazenamentoVetorialSqlite(string caminhoBanco, string tabela)
     {
-        string? diretorio = Path.GetDirectoryName(caminhoBanco);
-        if (!string.IsNullOrEmpty(diretorio))
-        {
-            Directory.CreateDirectory(diretorio);
-        }
-
-        stringConexao = $"Data Source={caminhoBanco}";
+        stringConexao = ConexaoBanco.MontarStringConexao(caminhoBanco);
         this.tabela = tabela;
     }
+
+    private const string Colunas = "id, vetor, texto, nome_entidade, livro, pagina_inicio, pagina_fim, is_fallback, modelo";
 
     public async Task PrepararAsync()
     {
         using SqliteConnection conexao = await AbrirAsync();
-        using SqliteCommand comando = conexao.CreateCommand();
-        comando.CommandText = $"""
-            CREATE VIRTUAL TABLE IF NOT EXISTS {tabela} USING vec0(
+        await ExecutarAsync(conexao, null, SqlCriarTabela(tabela));
+    }
+
+    public async Task<int> SalvarAsync(List<Chunk> chunks, List<ChunkEmbedding> embeddings)
+    {
+        int gravados = await GravarAsync(chunks, embeddings);
+        await CompactarAsync();
+        return gravados;
+    }
+
+    /// <summary>
+    /// Reescreve a vec0 sem espaço morto. Ela guarda os vetores em blocos de 1024 posições, e o
+    /// DELETE só marca posições como livres: as inserções seguintes vão para blocos novos no fim.
+    /// Cada regravação de livro deixava para trás um bloco de ~12 MB, e o banco chegou a ter 3 de 7
+    /// blocos vazios. VACUUM sozinho não resolve, porque para o SQLite essas páginas ainda são da
+    /// tabela — é preciso copiar os vetores para uma vec0 nova.
+    /// </summary>
+    public async Task CompactarAsync()
+    {
+        string temporaria = tabela + "_compactando";
+
+        using (SqliteConnection conexao = await AbrirAsync())
+        {
+            // Tudo numa transação: se algo falhar no meio, a tabela original fica intacta. Copia duas
+            // vezes em vez de renomear porque o sqlite-vec 0.1.7 não documenta RENAME na vec0.
+            using SqliteTransaction transacao = conexao.BeginTransaction();
+            await ExecutarAsync(conexao, transacao, $"DROP TABLE IF EXISTS {temporaria}");
+            await ExecutarAsync(conexao, transacao, SqlCriarTabela(temporaria));
+            await ExecutarAsync(conexao, transacao, $"INSERT INTO {temporaria}({Colunas}) SELECT {Colunas} FROM {tabela}");
+            await ExecutarAsync(conexao, transacao, $"DROP TABLE {tabela}");
+            await ExecutarAsync(conexao, transacao, SqlCriarTabela(tabela));
+            await ExecutarAsync(conexao, transacao, $"INSERT INTO {tabela}({Colunas}) SELECT {Colunas} FROM {temporaria}");
+            await ExecutarAsync(conexao, transacao, $"DROP TABLE {temporaria}");
+            transacao.Commit();
+        }
+
+        // Só agora as páginas dos blocos antigos estão livres; VACUUM as devolve ao disco e não roda
+        // dentro de transação.
+        using SqliteConnection conexaoVacuum = await AbrirAsync();
+        await ExecutarAsync(conexaoVacuum, null, "VACUUM");
+    }
+
+    private string SqlCriarTabela(string nome)
+    {
+        return $"""
+            CREATE VIRTUAL TABLE IF NOT EXISTS {nome} USING vec0(
                 id TEXT PRIMARY KEY,
                 vetor FLOAT[{Dimensoes}] distance_metric=cosine,
                 +texto TEXT,
@@ -49,10 +88,17 @@ public class ArmazenamentoVetorialSqlite : IArmazenamentoVetorial
                 +modelo TEXT
             )
             """;
+    }
+
+    private static async Task ExecutarAsync(SqliteConnection conexao, SqliteTransaction? transacao, string sql)
+    {
+        using SqliteCommand comando = conexao.CreateCommand();
+        comando.Transaction = transacao;
+        comando.CommandText = sql;
         await comando.ExecuteNonQueryAsync();
     }
 
-    public async Task<int> SalvarAsync(List<Chunk> chunks, List<ChunkEmbedding> embeddings)
+    private async Task<int> GravarAsync(List<Chunk> chunks, List<ChunkEmbedding> embeddings)
     {
         var chunkPorId = new Dictionary<Guid, Chunk>();
         foreach (Chunk chunk in chunks)
@@ -160,7 +206,7 @@ public class ArmazenamentoVetorialSqlite : IArmazenamentoVetorial
                     IsFallback = leitor.GetInt32(5) == 1,
                 },
                 // distance_metric=cosine devolve distância; similaridade é o complemento.
-                Similaridade = 1 - leitor.GetDouble(6),
+                Pontuacao = 1 - leitor.GetDouble(6),
             });
         }
 
@@ -185,12 +231,9 @@ public class ArmazenamentoVetorialSqlite : IArmazenamentoVetorial
         return contagem;
     }
 
-    private async Task<SqliteConnection> AbrirAsync()
+    private Task<SqliteConnection> AbrirAsync()
     {
-        var conexao = new SqliteConnection(stringConexao);
-        await conexao.OpenAsync();
-        conexao.LoadVector();
-        return conexao;
+        return ConexaoBanco.AbrirAsync(stringConexao);
     }
 
     private static byte[] ParaBytes(float[] vetor)

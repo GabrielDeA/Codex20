@@ -27,6 +27,7 @@
             <th class="num">No .chunks.json</th>
             <th>Gravado em</th>
             <th class="num">No banco</th>
+            <th class="num">No índice BM25</th>
         </tr>
     </thead>
     <tbody>
@@ -38,6 +39,7 @@
                 <td class="num">@(info is not null && info.IsExistente ? info.Quantidade.ToString("N0") : "—")</td>
                 <td class="suave">@(info is not null && info.IsExistente ? info.ModificadoEm.ToString("dd/MM/yyyy HH:mm") : "—")</td>
                 <td class="num">@(vetoresPorLivro.TryGetValue(opcao, out int vetores) ? vetores.ToString("N0") : "—")</td>
+                <td class="num">@(indicePorLivro.TryGetValue(opcao, out int indexados) ? indexados.ToString("N0") : "—")</td>
             </tr>
         }
     </tbody>
@@ -45,6 +47,18 @@
 <p class="nota">
     O banco costuma ter alguns a menos que o JSON: texto repetido dentro do livro é gravado uma vez só.
     Modelo: <code>@ServicoEmbeddings.Modelo</code> · banco: <code>@CaminhosDados.Banco()</code>
+</p>
+
+<h2>Índice BM25</h2>
+
+<div class="barra">
+    <button class="primario" @onclick="IndexarBm25" disabled="@(isGerando || isIndexando)">
+        @(isIndexando ? "Indexando…" : "Indexar BM25 (os três livros)")
+    </button>
+</div>
+<p class="nota">
+    Lê os mesmos <code>.chunks.json</code> e monta o índice de texto do FTS5, no mesmo banco. Não chama a API —
+    pode rodar à vontade; substitui o que o índice tinha de cada livro.
 </p>
 
 <h2>Gerar</h2>
@@ -67,7 +81,7 @@
         Limite (teste barato)
         <input type="number" min="1" class="numero" placeholder="todos" @bind="limite" disabled="@isGerando" />
     </label>
-    <button class="primario" @onclick="PedirConfirmacao" disabled="@(isGerando || !ServicoEmbeddings.IsConfigurado)">Gerar embeddings…</button>
+    <button class="primario" @onclick="PedirConfirmacao" disabled="@(isGerando || isIndexando || !ServicoEmbeddings.IsConfigurado)">Gerar embeddings…</button>
 </div>
 
 @if (erro is not null)
@@ -79,12 +93,12 @@
 {
     <div class="alerta aviso">
         <p>@confirmacao</p>
-        <button class="primario" @onclick="Gerar">Confirmar</button>
+        <button class="primario" @onclick="Gerar" disabled="@isIndexando">Confirmar</button>
         <button @onclick="Desistir">Voltar</button>
     </div>
 }
 
-@if (isGerando || log.Count > 0)
+@if (isGerando || isIndexando || log.Count > 0)
 {
     <div class="progresso">
         <progress max="@Math.Max(total, 1)" value="@feitos"></progress>
@@ -102,6 +116,7 @@
     private int tamanhoLote = 32;
     private int? limite;
     private bool isGerando;
+    private bool isIndexando;
     private string? erro;
     private string? confirmacao;
     private List<Chunk> chunksPendentes = new();
@@ -111,6 +126,7 @@
     private CancellationTokenSource? cancelamento;
     private Dictionary<string, InfoArquivoChunks> infos = new();
     private Dictionary<string, int> vetoresPorLivro = new();
+    private Dictionary<string, int> indicePorLivro = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -128,6 +144,7 @@
             }
 
             vetoresPorLivro = await ServicoEmbeddings.ContarVetoresPorLivroAsync();
+            indicePorLivro = await ServicoEmbeddings.ContarIndiceTextualPorLivroAsync();
         }
         catch (Exception excecao)
         {
@@ -139,7 +156,7 @@
     private List<string> LivrosDaTabela()
     {
         var livros = new List<string>(CatalogoLivros.Todos);
-        foreach (string noBanco in vetoresPorLivro.Keys)
+        foreach (string noBanco in vetoresPorLivro.Keys.Concat(indicePorLivro.Keys))
         {
             if (!livros.Contains(noBanco))
             {
@@ -148,6 +165,42 @@
         }
 
         return livros;
+    }
+
+    private async Task IndexarBm25()
+    {
+        erro = null;
+        confirmacao = null;
+        log = new List<string>();
+        total = CatalogoLivros.Todos.Count;
+        feitos = 0;
+        isIndexando = true;
+        var relogio = Stopwatch.StartNew();
+
+        try
+        {
+            foreach (string opcao in CatalogoLivros.Todos)
+            {
+                // Um livro sem .chunks.json não impede os outros de serem indexados.
+                try
+                {
+                    int gravados = await ServicoEmbeddings.IndexarTextoAsync(opcao);
+                    Registrar($"[bm25] {CatalogoLivros.NomeExibicao(opcao)}: {gravados:N0} chunks indexados ({relogio.Elapsed.TotalSeconds:F1}s)");
+                }
+                catch (Exception excecao)
+                {
+                    Registrar($"[erro] {CatalogoLivros.NomeExibicao(opcao)}: {excecao.Message}");
+                }
+
+                feitos++;
+                StateHasChanged();
+            }
+        }
+        finally
+        {
+            isIndexando = false;
+            await AtualizarSituacao();
+        }
     }
 
     private void PedirConfirmacao()

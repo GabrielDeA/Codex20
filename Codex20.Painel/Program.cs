@@ -13,6 +13,11 @@ builder.Services.AddScoped<ServicoChunking>();
 // Uma instância só: o cliente do Azure OpenAI e o banco vetorial não têm estado por aba.
 builder.Services.AddSingleton<ServicoEmbeddings>();
 
+// As estratégias são montadas uma vez e não guardam estado de consulta. Nenhuma interface vai para
+// o contêiner de propósito: o gerador do Azure lança exceção sem credenciais, e é o
+// ServicoEmbeddings que transforma isso em IsConfigurado = false para a tela.
+builder.Services.AddSingleton<ServicoBusca>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

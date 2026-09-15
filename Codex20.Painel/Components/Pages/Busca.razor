@@ -1,7 +1,8 @@
 @page "/busca"
-@using System.Diagnostics
+@using Codex20.Core.Busca
 @using Codex20.Core.Embeddings
 @inject ServicoEmbeddings ServicoEmbeddings
+@inject ServicoBusca ServicoBusca
 
 <PageTitle>Busca · Codex20</PageTitle>
 
@@ -9,9 +10,9 @@
 
 @if (!ServicoEmbeddings.IsConfigurado)
 {
-    <div class="alerta erro">
+    <div class="alerta aviso">
         @ServicoEmbeddings.ErroConfiguracao<br />
-        O Painel lê os mesmos user-secrets do Embeddings.Playground — veja <code>Codex20.Embeddings/README.md</code> e reinicie o Painel.
+        Sem as credenciais só a busca BM25 funciona. O Painel lê os mesmos user-secrets do Embeddings.Playground — veja <code>Codex20.Embeddings/README.md</code> e reinicie o Painel.
     </div>
 }
 
@@ -21,59 +22,161 @@
         <input type="search" placeholder="ex.: pontos de vida do aarakocra" @bind="consulta" @bind:event="oninput" />
     </label>
     <label>
+        Estratégia
+        <select @bind="nomeEstrategia" disabled="@(isBuscando || isCompararTodas)">
+            @foreach (IEstrategiaBusca opcao in ServicoBusca.Estrategias)
+            {
+                <option value="@opcao.Nome" disabled="@(!opcao.IsDisponivel)" title="@opcao.MotivoIndisponivel">@opcao.NomeExibicao</option>
+            }
+        </select>
+    </label>
+    <label>
         Resultados
         <input type="number" min="1" max="50" class="numero" @bind="top" />
     </label>
-    <button type="submit" class="primario" disabled="@(isBuscando || !ServicoEmbeddings.IsConfigurado)">
+    <label class="linha">
+        <input type="checkbox" @bind="isCompararTodas" disabled="@isBuscando" />
+        Comparar todas
+    </label>
+    <button type="submit" class="primario" disabled="@(isBuscando || !IsPodeBuscar())">
         @(isBuscando ? "Buscando…" : "Buscar")
     </button>
 </form>
 
-<p class="nota">Busca no banco inteiro (os três livros), pela similaridade de cosseno entre a consulta e cada chunk.</p>
+@if (isCompararTodas)
+{
+    <p class="nota">
+        Roda todas as estratégias sobre a mesma consulta, uma de cada vez, e mostra os rankings lado a lado.
+        A primeira consulta paga o cache frio do banco — rode uma de aquecimento antes de anotar tempos.
+    </p>
+}
+else
+{
+    <p class="nota">Busca no banco inteiro (os três livros). @ServicoBusca.Obter(nomeEstrategia).Descricao</p>
+}
 
 @if (erro is not null)
 {
     <div class="alerta erro">@erro</div>
 }
 
-@if (resultados is not null)
+@if (respostas.Count > 0 && isComparacaoFeita)
 {
+    <p class="nota">Comparação para “@consultaFeita”</p>
+
+    <div class="comparacao">
+        @foreach (RespostaBusca resposta in respostas)
+        {
+            <section class="coluna-estrategia">
+                <header>
+                    <strong>@ServicoBusca.Obter(resposta.NomeEstrategia).NomeExibicao</strong>
+                    <span class="tempo">@FormatarDuracao(resposta)</span>
+                    <span class="suave">@resposta.Resultados.Count resultado(s)</span>
+                </header>
+                @if (resposta.Observacao is not null)
+                {
+                    <div class="alerta aviso">@resposta.Observacao</div>
+                }
+                @foreach (ResultadoBusca achado in resposta.Resultados)
+                {
+                    <CartaoChunk Chunk="achado.Chunk" Pontuacao="achado.Pontuacao" RotuloPontuacao="@resposta.RotuloPontuacao"
+                                 DetalhePontuacao="@FormatoChunk.Contribuicoes(achado)" Posicao="achado.Posicao" IsCompacto="true" />
+                }
+            </section>
+        }
+    </div>
+}
+else if (respostas.Count > 0)
+{
+    RespostaBusca resposta = respostas[0];
+
     <p class="nota">
-        @resultados.Count resultado(s) para “@consultaFeita” · @duracao.TotalSeconds.ToString("F1") s · modelo <code>@ServicoEmbeddings.Modelo</code>
+        @resposta.Resultados.Count resultado(s) para “@consultaFeita” · @ServicoBusca.Obter(resposta.NomeEstrategia).NomeExibicao · @FormatarDuracao(resposta)
+        @if (ServicoEmbeddings.IsConfigurado)
+        {
+            <text> · modelo <code>@ServicoEmbeddings.Modelo</code></text>
+        }
     </p>
 
-    @for (int i = 0; i < resultados.Count; i++)
+    @if (resposta.Observacao is not null)
     {
-        ResultadoBusca achado = resultados[i];
-        <CartaoChunk Chunk="achado.Chunk" Similaridade="achado.Similaridade" Posicao="i + 1" IsCompacto="true" />
+        <div class="alerta aviso">@resposta.Observacao</div>
+    }
+
+    @foreach (ResultadoBusca achado in resposta.Resultados)
+    {
+        <CartaoChunk Chunk="achado.Chunk" Pontuacao="achado.Pontuacao" RotuloPontuacao="@resposta.RotuloPontuacao"
+                     DetalhePontuacao="@FormatoChunk.Contribuicoes(achado)" Posicao="achado.Posicao" IsCompacto="true" />
     }
 }
 
 @code {
     private string consulta = string.Empty;
     private string consultaFeita = string.Empty;
+    private string nomeEstrategia = string.Empty;
     private int top = 5;
+    private bool isCompararTodas;
+    private bool isComparacaoFeita;
     private bool isBuscando;
     private string? erro;
-    private List<ResultadoBusca>? resultados;
-    private TimeSpan duracao;
+    private List<RespostaBusca> respostas = new();
+
+    protected override void OnInitialized()
+    {
+        // Sem credenciais a vetorial nasce desabilitada; começar por ela deixaria o botão travado.
+        nomeEstrategia = ServicoBusca.Estrategias[0].Nome;
+        foreach (IEstrategiaBusca estrategia in ServicoBusca.Estrategias)
+        {
+            if (estrategia.IsDisponivel)
+            {
+                nomeEstrategia = estrategia.Nome;
+                break;
+            }
+        }
+    }
+
+    private bool IsPodeBuscar()
+    {
+        if (!isCompararTodas)
+        {
+            return ServicoBusca.Obter(nomeEstrategia).IsDisponivel;
+        }
+
+        foreach (IEstrategiaBusca estrategia in ServicoBusca.Estrategias)
+        {
+            if (estrategia.IsDisponivel)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private async Task Buscar()
     {
-        if (string.IsNullOrWhiteSpace(consulta) || isBuscando)
+        if (string.IsNullOrWhiteSpace(consulta) || isBuscando || !IsPodeBuscar())
         {
             return;
         }
 
         erro = null;
         isBuscando = true;
-        var relogio = Stopwatch.StartNew();
+        var pedido = new PedidoBusca { Texto = consulta.Trim(), Quantidade = Math.Clamp(top, 1, 50) };
 
         try
         {
-            resultados = await ServicoEmbeddings.BuscarAsync(consulta.Trim(), Math.Clamp(top, 1, 50));
-            consultaFeita = consulta.Trim();
-            duracao = relogio.Elapsed;
+            if (isCompararTodas)
+            {
+                respostas = await ServicoBusca.CompararAsync(pedido);
+            }
+            else
+            {
+                respostas = new List<RespostaBusca> { await ServicoBusca.ExecutarAsync(nomeEstrategia, pedido) };
+            }
+
+            isComparacaoFeita = isCompararTodas;
+            consultaFeita = pedido.Texto;
         }
         catch (Exception excecao)
         {
@@ -83,5 +186,10 @@
         {
             isBuscando = false;
         }
+    }
+
+    private static string FormatarDuracao(RespostaBusca resposta)
+    {
+        return $"{resposta.Duracao.TotalMilliseconds:N1} ms";
     }
 }

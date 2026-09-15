@@ -1,4 +1,6 @@
+using Codex20.Core.Busca;
 using Codex20.Core.Chunking;
+using Codex20.Core.Embeddings;
 
 namespace Codex20.Painel.Components;
 
@@ -35,5 +37,18 @@ public static class FormatoChunk
     {
         string linha = chunk.Texto.Replace('\n', ' ').Trim();
         return linha.Length <= maximo ? linha : linha[..maximo] + "…";
+    }
+
+    /// <summary>"cosseno #3 · bm25 —" — a colocação em cada perna de um resultado fundido.</summary>
+    public static string Contribuicoes(ResultadoBusca resultado)
+    {
+        var partes = new List<string>();
+        foreach (ContribuicaoEstrategia contribuicao in resultado.Contribuicoes)
+        {
+            string posicao = contribuicao.Posicao > 0 ? $"#{contribuicao.Posicao}" : "—";
+            partes.Add($"{contribuicao.NomeEstrategia} {posicao}");
+        }
+
+        return string.Join(" · ", partes);
     }
 }

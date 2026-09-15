@@ -16,4 +16,7 @@ public interface IArmazenamentoVetorial
     Task<int> SalvarAsync(List<Chunk> chunks, List<ChunkEmbedding> embeddings);
 
     Task<List<ResultadoBusca>> BuscarSimilaresAsync(float[] vetorConsulta, int quantidade);
+
+    /// <summary>Quantos vetores cada livro tem no banco.</summary>
+    Task<Dictionary<string, int>> ContarPorLivroAsync();
 }
