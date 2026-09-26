@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Codex20.Geracao</RootNamespace>
+    <!-- ReasoningEffortLevel é marcado como experimental (OPENAI001). É o parâmetro que controla
+         quanto o modelo de raciocínio pensa — e quanto se paga por isso. Uso deliberado. -->
+    <NoWarn>$(NoWarn);OPENAI001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Codex20.Core\Codex20.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SDK da OpenAI apontado para a API v1 da Azure: o mesmo cliente serve os modelos da OpenAI e
+         os de terceiros do Foundry (DeepSeek, Kimi), trocando só o nome do deployment. -->
+    <PackageReference Include="OpenAI" Version="2.14.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.11" />
+  </ItemGroup>
+
+</Project>

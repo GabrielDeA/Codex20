@@ -1,0 +1,207 @@
+@page "/perguntar"
+@using Codex20.Core.Busca
+@using Codex20.Core.Embeddings
+@using Codex20.Core.Geracao
+@inject ServicoGeracao ServicoGeracao
+
+<PageTitle>Perguntar · Codex20</PageTitle>
+
+<h1>Perguntar</h1>
+
+@if (!ServicoGeracao.IsConfigurado)
+{
+    <div class="alerta aviso">
+        @ServicoGeracao.ErroConfiguracao<br />
+        Crie um deployment de chat no Foundry e configure-o nos mesmos user-secrets do Painel — veja <code>Codex20.Geracao/README.md</code> e reinicie o Painel.
+    </div>
+}
+
+<form class="barra" @onsubmit="Responder">
+    <label class="expande">
+        Pergunta
+        <input type="search" placeholder="ex.: quantos pontos de vida tem um aarakocra?" @bind="pergunta" @bind:event="oninput" />
+    </label>
+    <label>
+        Busca
+        <select @bind="nomeEstrategia" disabled="@isRespondendo">
+            @foreach (IEstrategiaBusca opcao in ServicoGeracao.Estrategias)
+            {
+                <option value="@opcao.Nome" disabled="@(!opcao.IsDisponivel)" title="@opcao.MotivoIndisponivel">@opcao.NomeExibicao</option>
+            }
+        </select>
+    </label>
+    <label>
+        Trechos
+        <input type="number" min="1" max="20" class="numero" @bind="quantidadeTrechos" />
+    </label>
+    <button type="submit" class="primario" disabled="@(isRespondendo || !IsPodeResponder())">
+        @(isRespondendo ? "Respondendo…" : "Perguntar")
+    </button>
+</form>
+
+<p class="nota">
+    Recupera os trechos com a busca escolhida e pede ao modelo uma resposta só com base neles, citando cada um como [n].
+    @if (ServicoGeracao.IsConfigurado)
+    {
+        <text>Modelo <code>@ServicoGeracao.Modelo</code>.</text>
+    }
+</p>
+
+@if (erro is not null)
+{
+    <div class="alerta erro">@erro</div>
+}
+
+@if (resposta is not null)
+{
+    @if (resposta.Observacao is not null)
+    {
+        <div class="alerta aviso">@resposta.Observacao</div>
+    }
+
+    @if (resposta.Texto.Length > 0)
+    {
+        <section class="resposta">
+            <div class="texto-resposta">
+                @foreach (SegmentoResposta segmento in LeitorCitacoes.Segmentar(resposta.Texto))
+                {
+                    if (!segmento.IsCitacao)
+                    {
+                        @segmento.Texto
+                        continue;
+                    }
+
+                    foreach (int numero in segmento.Numeros)
+                    {
+                        if (numero >= 1 && numero <= resposta.Trechos.Count)
+                        {
+                            <a class="citacao" href="perguntar#trecho-@numero">@numero</a>
+                        }
+                        else
+                        {
+                            <span class="citacao inexistente" title="Não havia trecho com esse número no prompt">@numero</span>
+                        }
+                    }
+                }
+            </div>
+            <footer class="meta">
+                @resposta.Modelo
+                · busca @ServicoGeracao.ObterEstrategia(resposta.NomeEstrategiaBusca).NomeExibicao em @FormatarDuracao(resposta.DuracaoBusca)
+                · geração em @FormatarDuracao(resposta.DuracaoGeracao)
+                · tokens: @resposta.TokensEntrada.ToString("N0") de entrada, @resposta.TokensSaida.ToString("N0") de saída
+                @if (resposta.TokensRaciocinio > 0)
+                {
+                    <text> (@resposta.TokensRaciocinio.ToString("N0") de raciocínio)</text>
+                }
+            </footer>
+        </section>
+    }
+    else if (resposta.Trechos.Count > 0)
+    {
+        <div class="alerta aviso">O modelo devolveu uma resposta vazia.</div>
+    }
+
+    @if (resposta.Trechos.Count > 0)
+    {
+        <details class="prompt">
+            <summary>Prompt enviado</summary>
+            <pre>@MontadorPrompt.Instrucoes</pre>
+            <pre>@resposta.Mensagem</pre>
+        </details>
+
+        <h2>Trechos enviados <span class="suave">· @resposta.Citacoes.Count de @resposta.Trechos.Count citado(s)</span></h2>
+
+        @for (int i = 0; i < resposta.Trechos.Count; i++)
+        {
+            int numero = i + 1;
+            ResultadoBusca trecho = resposta.Trechos[i];
+
+            <div id="trecho-@numero" class="trecho @(resposta.IsCitado(numero) ? "citado" : "")">
+                <CartaoChunk Chunk="trecho.Chunk" Pontuacao="trecho.Pontuacao" RotuloPontuacao="@ServicoGeracao.ObterEstrategia(resposta.NomeEstrategiaBusca).RotuloPontuacao"
+                             DetalhePontuacao="@DetalheTrecho(numero, trecho)" Posicao="numero" IsCompacto="true" />
+            </div>
+        }
+    }
+}
+
+@code {
+    private string pergunta = string.Empty;
+    private string nomeEstrategia = string.Empty;
+    private int quantidadeTrechos = new PedidoResposta().QuantidadeTrechos;
+    private bool isRespondendo;
+    private string? erro;
+    private RespostaGerada? resposta;
+
+    protected override void OnInitialized()
+    {
+        // A híbrida é o padrão; sem credenciais de embedding ela nasce desabilitada, então cai na
+        // primeira que estiver disponível para o select não começar travado.
+        nomeEstrategia = ServicoGeracao.Estrategias[0].Nome;
+        foreach (IEstrategiaBusca estrategia in ServicoGeracao.Estrategias)
+        {
+            if (estrategia.Nome == "rrf" && estrategia.IsDisponivel)
+            {
+                nomeEstrategia = estrategia.Nome;
+                return;
+            }
+        }
+
+        foreach (IEstrategiaBusca estrategia in ServicoGeracao.Estrategias)
+        {
+            if (estrategia.IsDisponivel)
+            {
+                nomeEstrategia = estrategia.Nome;
+                return;
+            }
+        }
+    }
+
+    private bool IsPodeResponder()
+    {
+        return ServicoGeracao.IsConfigurado && ServicoGeracao.ObterEstrategia(nomeEstrategia).IsDisponivel;
+    }
+
+    private async Task Responder()
+    {
+        if (string.IsNullOrWhiteSpace(pergunta) || isRespondendo || !IsPodeResponder())
+        {
+            return;
+        }
+
+        erro = null;
+        isRespondendo = true;
+        var pedido = new PedidoResposta { Pergunta = pergunta.Trim(), QuantidadeTrechos = Math.Clamp(quantidadeTrechos, 1, 20) };
+
+        try
+        {
+            resposta = await ServicoGeracao.ResponderAsync(nomeEstrategia, pedido);
+        }
+        catch (Exception excecao)
+        {
+            erro = excecao.Message;
+        }
+        finally
+        {
+            isRespondendo = false;
+        }
+    }
+
+    /// <summary>"citado · cosseno #3 · bm25 #1" — se o modelo usou o trecho e de onde veio a colocação.</summary>
+    private string DetalheTrecho(int numero, ResultadoBusca trecho)
+    {
+        string uso = resposta!.IsCitado(numero) ? "citado" : "não citado";
+        string contribuicoes = FormatoChunk.Contribuicoes(trecho);
+
+        return contribuicoes.Length == 0 ? uso : $"{uso} · {contribuicoes}";
+    }
+
+    private static string FormatarDuracao(TimeSpan duracao)
+    {
+        if (duracao.TotalSeconds < 1)
+        {
+            return $"{duracao.TotalMilliseconds:N0} ms";
+        }
+
+        return $"{duracao.TotalSeconds:N1} s";
+    }
+}

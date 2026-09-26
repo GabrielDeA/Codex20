@@ -1,7 +1,7 @@
 using System.ClientModel;
-using Azure.AI.OpenAI;
 using Codex20.Core.Embeddings;
 using Microsoft.Extensions.Configuration;
+using OpenAI;
 using OpenAI.Embeddings;
 
 namespace Codex20.Embeddings;
@@ -10,6 +10,10 @@ namespace Codex20.Embeddings;
 /// Gera embeddings chamando um deployment do Azure OpenAI. Uma chamada por lote recebido —
 /// quem divide o corpus em lotes é o chamador.
 /// </summary>
+/// <remarks>
+/// Fala com a API v1 da Azure (<c>/openai/v1/</c>) pelo SDK da OpenAI, a mesma porta usada pelo
+/// gerador de respostas do Codex20.Geracao. O "modelo" que se passa ao SDK é o nome do deployment.
+/// </remarks>
 public class GeradorEmbeddingAzureOpenAI : IGeradorEmbedding
 {
     private readonly EmbeddingClient cliente;
@@ -29,8 +33,8 @@ public class GeradorEmbeddingAzureOpenAI : IGeradorEmbedding
             ?? throw new InvalidOperationException(
                 "Configure 'AzureOpenAI:DeploymentEmbedding' (nome do deployment, ex. text-embedding-3-large) via 'dotnet user-secrets set' ou a variável de ambiente AzureOpenAI__DeploymentEmbedding.");
 
-        var azure = new AzureOpenAIClient(new Uri(endpoint), new ApiKeyCredential(key));
-        cliente = azure.GetEmbeddingClient(deployment);
+        var opcoes = new OpenAIClientOptions { Endpoint = new Uri(new Uri(endpoint), "openai/v1/") };
+        cliente = new OpenAIClient(new ApiKeyCredential(key), opcoes).GetEmbeddingClient(deployment);
     }
 
     public string Modelo => deployment;

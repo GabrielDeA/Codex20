@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Codex20.Core\Codex20.Core.csproj" />
     <ProjectReference Include="..\Codex20.Embeddings\Codex20.Embeddings.csproj" />
+    <ProjectReference Include="..\Codex20.Geracao\Codex20.Geracao.csproj" />
   </ItemGroup>
 
 </Project>

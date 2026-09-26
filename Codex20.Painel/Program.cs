@@ -18,6 +18,9 @@ builder.Services.AddSingleton<ServicoEmbeddings>();
 // ServicoEmbeddings que transforma isso em IsConfigurado = false para a tela.
 builder.Services.AddSingleton<ServicoBusca>();
 
+// Mesmo raciocínio: o cliente de chat não guarda conversa, cada pergunta é independente.
+builder.Services.AddSingleton<ServicoGeracao>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

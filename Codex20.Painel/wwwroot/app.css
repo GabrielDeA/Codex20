@@ -515,6 +515,101 @@ pre.texto {
     font-variant-numeric: tabular-nums;
 }
 
+/* ── Perguntar ──────────────────────────── */
+
+.resposta {
+    margin-top: .75rem;
+    padding: .9rem 1.1rem;
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-left: 3px solid var(--destaque);
+    border-radius: 8px;
+}
+
+/* O modelo escreve texto simples com quebras de linha e listas com hífen. */
+.texto-resposta {
+    font-size: .98rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.resposta footer {
+    margin: .7rem 0 0;
+}
+
+.citacao {
+    display: inline-block;
+    min-width: 1.35em;
+    margin: 0 .1em;
+    padding: 0 .3em;
+    border-radius: 4px;
+    background: var(--destaque-suave);
+    color: var(--destaque);
+    font-size: .75em;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    vertical-align: super;
+}
+
+a.citacao:hover {
+    background: var(--destaque);
+    color: #fff;
+}
+
+.citacao.inexistente {
+    background: var(--ruim-suave);
+    color: var(--ruim);
+}
+
+.prompt {
+    margin: .75rem 0;
+}
+
+.prompt summary {
+    color: var(--texto-suave);
+    font-size: .85rem;
+    cursor: pointer;
+}
+
+.prompt pre {
+    margin: .5rem 0 0;
+    padding: .6rem .7rem;
+    max-height: 24rem;
+    overflow: auto;
+    border: 1px solid var(--borda-suave);
+    border-radius: 6px;
+    background: var(--superficie);
+    font-family: var(--mono);
+    font-size: .78rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Não citado fica apagado: o que o modelo usou salta aos olhos. */
+.trecho {
+    opacity: .6;
+    scroll-margin-top: 1rem;
+}
+
+.trecho.citado {
+    opacity: 1;
+}
+
+.trecho.citado .cartao-chunk {
+    border-left: 3px solid var(--destaque);
+}
+
+.trecho:target .cartao-chunk {
+    outline: 2px solid var(--destaque);
+    opacity: 1;
+}
+
+.trecho:target {
+    opacity: 1;
+}
+
 /* ── Embeddings ─────────────────────────── */
 
 .progresso {

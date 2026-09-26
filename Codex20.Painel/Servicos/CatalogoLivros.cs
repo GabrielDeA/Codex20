@@ -12,13 +12,7 @@ public static class CatalogoLivros
 
     public static string NomeExibicao(string livro)
     {
-        return livro switch
-        {
-            "monstro" => "Manual dos Monstros",
-            "jogador" => "Livro do Jogador",
-            "mestre" => "Guia do Mestre",
-            _ => livro,
-        };
+        return NomesLivros.Exibicao(livro);
     }
 
     public static string ArquivoMarkdown(string livro)
