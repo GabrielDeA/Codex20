@@ -1,6 +1,13 @@
 @Codex20.Api_HostAddress = http://localhost:5183
+# A mesma do user-secret Consulta:ChaveAcesso.
+@chave = troque-pela-chave
 
-GET {{Codex20.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+POST {{Codex20.Api_HostAddress}}/api/consultas
+Content-Type: application/json
+X-Chave-Acesso: {{chave}}
+
+{
+  "pergunta": "Quantos pontos de vida tem um aarakocra?"
+}
 
 ###

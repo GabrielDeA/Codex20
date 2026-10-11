@@ -1,0 +1,259 @@
+:root {
+    --fundo: #faf7f2;
+    --superficie: #ffffff;
+    --texto: #1f1a17;
+    --suave: #6b625b;
+    --borda: #e4ddd3;
+    --destaque: #8b1e1e;
+    --destaque-texto: #ffffff;
+    --aviso-fundo: #fff4d6;
+    --aviso-texto: #6b4e00;
+    --erro-fundo: #fde3e1;
+    --erro-texto: #8b1e1e;
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fundo: #171412;
+        --superficie: #221e1b;
+        --texto: #ece6df;
+        --suave: #a39a91;
+        --borda: #3a332e;
+        --destaque: #d9604f;
+        --destaque-texto: #171412;
+        --aviso-fundo: #3a2f12;
+        --aviso-texto: #f2d68a;
+        --erro-fundo: #3d1d1a;
+        --erro-texto: #f3a69c;
+        color-scheme: dark;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    background: var(--fundo);
+    color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px;
+    line-height: 1.5;
+}
+
+.pagina {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 0 16px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+.cabecalho {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 1.2rem 0 1rem;
+}
+
+.marca {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--destaque);
+}
+
+.subtitulo {
+    color: var(--suave);
+    font-size: 0.95rem;
+}
+
+.rodape {
+    color: var(--suave);
+    font-size: 0.8rem;
+    padding: 2rem 0 1.2rem;
+}
+
+.consulta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+textarea, input[type=text] {
+    width: 100%;
+    font: inherit;
+    color: var(--texto);
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    padding: 0.7rem 0.8rem;
+    resize: vertical;
+}
+
+    textarea:focus, input[type=text]:focus {
+        outline: 2px solid var(--destaque);
+        outline-offset: 1px;
+    }
+
+button {
+    font: inherit;
+    font-weight: 600;
+    color: var(--destaque-texto);
+    background: var(--destaque);
+    border: none;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+}
+
+    button:disabled {
+        opacity: 0.55;
+        cursor: default;
+    }
+
+.alerta {
+    border-radius: 10px;
+    padding: 0.7rem 0.9rem;
+    margin: 1rem 0 0;
+}
+
+    .alerta.aviso {
+        background: var(--aviso-fundo);
+        color: var(--aviso-texto);
+    }
+
+    .alerta.erro {
+        background: var(--erro-fundo);
+        color: var(--erro-texto);
+    }
+
+.resposta {
+    margin-top: 1.2rem;
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+}
+
+    .resposta .texto {
+        margin: 0;
+        /* O modelo separa parágrafos e itens de lista com quebra de linha. */
+        white-space: pre-line;
+        overflow-wrap: anywhere;
+    }
+
+    .resposta h2 {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--suave);
+        margin: 1.2rem 0 0.5rem;
+    }
+
+.citacao {
+    display: inline-block;
+    min-width: 1.3em;
+    padding: 0 0.3em;
+    border-radius: 0.6em;
+    background: var(--destaque);
+    color: var(--destaque-texto);
+    font-size: 0.7em;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+    margin-left: 0.15em;
+}
+
+sup.citacao {
+    vertical-align: super;
+}
+
+.fontes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+    .fontes li {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+    }
+
+    .fontes .citacao {
+        margin-left: 0;
+        flex-shrink: 0;
+    }
+
+.entidade {
+    color: var(--suave);
+}
+
+.acesso p {
+    margin-top: 0;
+}
+
+#blazor-error-ui {
+    background: var(--aviso-fundo);
+    color: var(--aviso-texto);
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
+
+.loading-progress {
+    position: absolute;
+    display: block;
+    width: 6rem;
+    height: 6rem;
+    inset: 20vh 0 auto 0;
+    margin: 0 auto;
+}
+
+    .loading-progress circle {
+        fill: none;
+        stroke: var(--borda);
+        stroke-width: 0.5rem;
+        transform-origin: 50% 50%;
+        transform: rotate(-90deg);
+    }
+
+        .loading-progress circle:last-child {
+            stroke: var(--destaque);
+            stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+            transition: stroke-dasharray 0.05s ease-in-out;
+        }
+
+.loading-progress-text {
+    position: absolute;
+    text-align: center;
+    font-weight: bold;
+    color: var(--suave);
+    inset: calc(20vh + 2.4rem) 0 auto 0.2rem;
+}
+
+    .loading-progress-text:after {
+        content: var(--blazor-load-percentage-text, "Carregando");
+    }

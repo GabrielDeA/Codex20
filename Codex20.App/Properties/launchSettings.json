@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Codex20.App": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:50149;http://localhost:50150"
+    }
+  }
+}

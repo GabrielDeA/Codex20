@@ -1,0 +1,24 @@
+{
+  "name": "Codex20",
+  "short_name": "Codex20",
+  "description": "Perguntas sobre as regras de D&D 5ª edição, respondidas com as páginas dos livros.",
+  "lang": "pt-BR",
+  "id": "./",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#faf7f2",
+  "theme_color": "#8b1e1e",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    }
+  ]
+}

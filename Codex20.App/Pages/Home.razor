@@ -1,0 +1,174 @@
+@page "/"
+@inject ClienteConsulta Cliente
+@inject NavigationManager Navegacao
+
+<PageTitle>Codex20</PageTitle>
+
+@if (!isCarregado)
+{
+    // Ainda lendo a chave do localStorage: não mostra nada para a tela não piscar.
+}
+else if (!Cliente.IsComChave)
+{
+    <section class="acesso">
+        <p>Este app está em fase de testes. Para usar, abra o link de convite que você recebeu ou digite o código de acesso.</p>
+        @if (erro is not null)
+        {
+            <p class="alerta erro">@erro</p>
+        }
+        <form class="consulta" @onsubmit="Entrar">
+            <input type="text" placeholder="Código de acesso" autocomplete="off" @bind="chaveDigitada" @bind:event="oninput" />
+            <button type="submit" disabled="@string.IsNullOrWhiteSpace(chaveDigitada)">Entrar</button>
+        </form>
+    </section>
+}
+else
+{
+    <form class="consulta" @onsubmit="Consultar">
+        <textarea rows="3" maxlength="@PedidoConsulta.TamanhoMaximoPergunta" disabled="@isConsultando"
+                  placeholder="ex.: Quantos pontos de vida tem um aarakocra?"
+                  @bind="pergunta" @bind:event="oninput"></textarea>
+        <button type="submit" disabled="@(isConsultando || string.IsNullOrWhiteSpace(pergunta))">
+            @(isConsultando ? "Consultando os livros…" : "Perguntar")
+        </button>
+    </form>
+
+    @if (erro is not null)
+    {
+        <p class="alerta erro">@erro</p>
+    }
+
+    @if (resposta is not null)
+    {
+        @if (resposta.Aviso is not null)
+        {
+            <p class="alerta aviso">@resposta.Aviso</p>
+        }
+
+        @if (resposta.Partes.Count > 0)
+        {
+            <section class="resposta">
+                <p class="texto">
+                    @foreach (ParteResposta parte in resposta.Partes)
+                    {
+                        if (parte.IsCitacao)
+                        {
+                            <sup class="citacao">@parte.NumeroFonte</sup>
+                        }
+                        else
+                        {
+                            @parte.Texto
+                        }
+                    }
+                </p>
+
+                @if (resposta.Fontes.Count > 0)
+                {
+                    <h2>Fontes</h2>
+                    <ol class="fontes">
+                        @foreach (FonteConsulta fonte in resposta.Fontes)
+                        {
+                            <li>
+                                <span class="citacao">@fonte.Numero</span>
+                                <span>
+                                    <strong>@fonte.Livro</strong>@DescreverPaginas(fonte)
+                                    @if (fonte.NomeEntidade is not null)
+                                    {
+                                        <span class="entidade"> · @fonte.NomeEntidade</span>
+                                    }
+                                </span>
+                            </li>
+                        }
+                    </ol>
+                }
+            </section>
+        }
+    }
+}
+
+@code {
+    /// <summary>O link de convite: https://endereço/?chave=...</summary>
+    [SupplyParameterFromQuery(Name = "chave")]
+    public string? ChaveDoLink { get; set; }
+
+    private bool isCarregado;
+    private bool isConsultando;
+    private string pergunta = string.Empty;
+    private string chaveDigitada = string.Empty;
+    private string? erro;
+    private RespostaConsulta? resposta;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(ChaveDoLink))
+        {
+            await Cliente.SalvarChaveAsync(ChaveDoLink);
+            // Tira a chave da barra de endereço: quem instalar o app ou copiar o link não a leva junto.
+            Navegacao.NavigateTo("", replace: true);
+        }
+        else
+        {
+            await Cliente.CarregarChaveAsync();
+        }
+
+        isCarregado = true;
+    }
+
+    private async Task Entrar()
+    {
+        if (string.IsNullOrWhiteSpace(chaveDigitada))
+        {
+            return;
+        }
+
+        erro = null;
+        await Cliente.SalvarChaveAsync(chaveDigitada);
+        chaveDigitada = string.Empty;
+    }
+
+    private async Task Consultar()
+    {
+        if (string.IsNullOrWhiteSpace(pergunta) || isConsultando)
+        {
+            return;
+        }
+
+        erro = null;
+        resposta = null;
+        isConsultando = true;
+
+        try
+        {
+            resposta = await Cliente.ConsultarAsync(pergunta.Trim());
+        }
+        catch (ErroConsulta falha)
+        {
+            erro = falha.Message;
+            if (falha.IsAcessoNegado)
+            {
+                // Chave errada ou trocada no servidor: volta a pedir o código.
+                await Cliente.EsquecerChaveAsync();
+            }
+        }
+        finally
+        {
+            isConsultando = false;
+        }
+    }
+
+    /// <summary>", p. 12" ou ", p. 12–13"; vazio quando o trecho não tem página conhecida.</summary>
+    private static string DescreverPaginas(FonteConsulta fonte)
+    {
+        if (fonte.PaginaInicio is null)
+        {
+            return string.Empty;
+        }
+
+        if (fonte.PaginaFim is null || fonte.PaginaFim == fonte.PaginaInicio)
+        {
+            return $", p. {fonte.PaginaInicio}";
+        }
+
+        return $", p. {fonte.PaginaInicio}–{fonte.PaginaFim}";
+    }
+}

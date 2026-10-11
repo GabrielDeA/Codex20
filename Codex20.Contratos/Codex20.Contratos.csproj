@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- O que a Api e o App trocam. Sem dependência nenhuma de propósito: o App roda no navegador e
+       baixa tudo o que referencia, então nada do Core (Semantic Kernel, OpenAI) pode vir junto. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

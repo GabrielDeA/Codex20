@@ -6,6 +6,13 @@
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "Codex20.Painel", "--launch-profile", "http", "--no-launch-browser"],
       "port": 5007
+    },
+    {
+      "name": "app",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "Codex20.Api", "--launch-profile", "http", "--no-launch-browser"],
+      "env": { "Consulta__ChaveAcesso": "teste-local" },
+      "port": 5183
     }
   ]
 }

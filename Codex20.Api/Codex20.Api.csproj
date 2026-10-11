@@ -4,14 +4,22 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Mesmo Id do Painel e do Embeddings.Playground: lê as mesmas credenciais do Azure OpenAI. -->
+    <UserSecretsId>3f0b4c5a-7d18-4a92-9f6b-2c8e1d4a5b70</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <!-- Serve o Codex20.App (o runtime .NET em WebAssembly e as DLLs) pela mesma URL da Api. -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Codex20.Core\Codex20.Core.csproj" />
+    <ProjectReference Include="..\Codex20.Embeddings\Codex20.Embeddings.csproj" />
+    <ProjectReference Include="..\Codex20.Geracao\Codex20.Geracao.csproj" />
+    <ProjectReference Include="..\Codex20.Contratos\Codex20.Contratos.csproj" />
+    <ProjectReference Include="..\Codex20.App\Codex20.App.csproj" />
   </ItemGroup>
 
 </Project>
