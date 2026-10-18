@@ -1,0 +1,40 @@
+@startuml figura3-casos-de-uso
+' Figura 3 – Diagrama de casos de uso (rascunho; ver NOTAS.md)
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #F5F5F5
+  BorderColor #333333
+}
+skinparam note {
+  BackgroundColor #FFF8DC
+}
+
+actor "Usuário final\n(jogador ou mestre)" as usuario
+actor "Administrador" as admin
+
+rectangle "Codex20" {
+  usecase "Fazer pergunta e receber\nresposta com as fontes\n(livro e página)\n(RF01, RF03, RF05)" as UC01
+  usecase "Comparar estratégias\nde busca\n(RF07)" as UC07
+  usecase "Processar livro\n(RF06)" as UC06
+
+  usecase "Converter PDF\nem Markdown" as UC06a
+  usecase "Gerar trechos\n(chunking)" as UC06b
+  usecase "Gerar embeddings\ne índice BM25" as UC06c
+
+  note "Restrições de comportamento:\nRF02 responder só com base nos trechos;\nRF04 avisar quando a resposta não está\nnos livros ou está só em parte." as N1
+}
+
+usuario -- UC01
+admin -- UC07
+admin -- UC06
+
+UC06 ..> UC06a : <<include>>
+UC06 ..> UC06b : <<include>>
+UC06 ..> UC06c : <<include>>
+
+N1 .. UC01
+@enduml

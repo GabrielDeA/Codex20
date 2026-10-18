@@ -1,0 +1,107 @@
+@startuml figura5-sequencia-rrf
+' Figura 5 – Sequência de uma consulta com a estratégia RRF (rascunho; ver NOTAS.md)
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+skinparam BoxPadding 4
+skinparam maxMessageSize 170
+hide footbox
+
+actor "Usuário" as usuario
+box "Codex20.App (navegador)" #F4F4F4
+  participant ":Cliente\nConsulta" as app
+end box
+box "Codex20.Api" #F4F4F4
+  participant ":Consultas\nController" as controller
+  participant ":Servico\nConsulta" as servico
+end box
+participant ":PipelineRag" as pipeline
+participant ":Estrategia\nBuscaRrf" as rrf
+participant ":Estrategia\nBuscaCosseno" as cosseno
+participant ":GeradorEmbedding\nAzureOpenAI" as gerEmb
+participant ":Armazenamento\nVetorialSqlite" as armazenamento
+participant ":Estrategia\nBuscaBm25" as bm25
+participant ":IndiceTextual\nFts5" as fts
+participant "MontadorPrompt\n<<static>>" as montador
+participant ":GeradorResposta\nAzureOpenAI" as gerResp
+participant "LeitorCitacoes\n<<static>>" as leitor
+
+usuario -> app : pergunta
+activate app
+app -> controller : POST /api/consultas\nPedidoConsulta + X-Chave-Acesso
+activate controller
+note right of controller
+  Antes de consultar:
+  limite por IP (5/min),
+  chave de acesso,
+  tamanho (1 a 500),
+  limite diário.
+end note
+controller -> servico : ConsultarAsync(pergunta)
+activate servico
+servico -> pipeline : ResponderAsync(rrf, pedido)\nQuantidadeTrechos = 8
+activate pipeline
+pipeline -> rrf : BuscarAsync(pedido)\nQuantidade = 8
+activate rrf
+note right of rrf
+  Quantidade de cada perna:
+  max(8, 50) = 50.
+  Pernas executadas em
+  sequência (foreach + await).
+end note
+
+rrf -> cosseno : BuscarAsync(pedidoPerna)
+activate cosseno
+cosseno -> gerEmb : GerarEmLoteAsync([pergunta])
+activate gerEmb
+gerEmb --> cosseno : vetor (3072 dimensões)
+deactivate gerEmb
+cosseno -> armazenamento : BuscarSimilaresAsync(vetor, 50)
+activate armazenamento
+armazenamento --> cosseno : até 50 trechos (vec0, cosseno)
+deactivate armazenamento
+cosseno --> rrf : ranking cosseno
+deactivate cosseno
+
+rrf -> bm25 : BuscarAsync(pedidoPerna)
+activate bm25
+bm25 -> fts : BuscarTextoAsync(pergunta, 50)
+activate fts
+fts --> bm25 : até 50 trechos (FTS5, bm25)
+deactivate fts
+bm25 --> rrf : ranking BM25
+deactivate bm25
+
+rrf -> rrf : funde por Chunk.Id:\nsoma 1/(60 + posição),\nordena e corta em 8
+rrf --> pipeline : até 8 trechos
+deactivate rrf
+
+alt Resultados.Count == 0 (busca sem trechos)
+  pipeline --> servico : RespostaGerada sem texto\n(o modelo não foi chamado)
+else Resultados.Count > 0
+  pipeline -> montador : MontarMensagem(pergunta, trechos)
+  activate montador
+  montador --> pipeline : mensagem (trechos [1..n] + pergunta)
+  deactivate montador
+  pipeline -> gerResp : GerarAsync(Instrucoes, mensagem)
+  activate gerResp
+  gerResp --> pipeline : ConclusaoModelo (texto com [n], tokens)
+  deactivate gerResp
+  pipeline -> leitor : Extrair(texto)
+  activate leitor
+  leitor --> pipeline : números citados
+  deactivate leitor
+  pipeline -> pipeline : separa citações válidas\ne inexistentes
+  pipeline --> servico : RespostaGerada\n(texto, trechos, citações)
+end
+deactivate pipeline
+
+servico -> servico : ConversorResposta.Converter:\nrenumera as fontes citadas (1..n),\ndescarta o texto dos trechos;\nsem trechos, Aviso "Não encontrei\nnada nos livros"
+servico --> controller : RespostaConsulta
+deactivate servico
+controller --> app : 200 OK, RespostaConsulta (JSON):\npartes, fontes, aviso
+deactivate controller
+app --> usuario : resposta com citações\ne fontes (livro e página)
+deactivate app
+@enduml

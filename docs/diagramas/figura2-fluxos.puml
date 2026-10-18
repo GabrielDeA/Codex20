@@ -1,0 +1,90 @@
+@startuml figura2-fluxos
+' Figura 2 – Fluxos de preparação e de consulta (rascunho; ver NOTAS.md)
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam shadowing false
+skinparam ranksep 22
+skinparam nodesep 25
+skinparam ArrowColor #333333
+skinparam rectangle {
+  RoundCorner 8
+}
+skinparam artifact {
+  BackgroundColor #FFF8DC
+}
+skinparam database {
+  BackgroundColor #FFF8DC
+}
+skinparam frame {
+  FontStyle bold
+}
+rectangle "Fluxo de preparação (offline, uma vez por livro)" as prep {
+  artifact "PDF do livro" as pdf
+  frame "Codex20.Ingestion" {
+    rectangle "Extração de layout\n(DocumentIntelligenceService)" as extracao
+  }
+  cloud "Azure AI\nDocument Intelligence" as di
+  artifact "Data/Markdown/<nome>.md" as md
+  rectangle "Revisão manual\n(editor de texto)" as revisao
+  artifact "Data/Markdown/RESULTADO_<livro>.md" as mdRevisado
+  frame "Codex20.Core\n(executado pelo Chunking.Playground ou pelo Painel)" {
+    rectangle "Pré-processamento e fragmentação\n(PreProcessadorDocumentoMarkdown,\nChunkingStrategyPorEntidade)" as chunking
+  }
+  artifact "Data/Chunks/<livro>.chunks.json" as json
+  frame "Codex20.Embeddings\n(executado pelo Embeddings.Playground ou pelo Painel)" {
+    rectangle "Geração de embeddings\n(GeradorEmbeddingAzureOpenAI,\nArmazenamentoVetorialSqlite)" as embeddings
+    rectangle "Indexação BM25\n(IndiceTextualFts5)" as bm25
+  }
+  cloud "Azure OpenAI\n(embeddings)" as aoaiEmb
+}
+
+database "Data/Vetores/embeddings.db\ntabela chunks (vec0)\ntabela chunks_fts (FTS5)" as db
+
+
+rectangle "Fluxo de consulta (por pergunta)" as consulta {
+  rectangle "Codex20.App\n(webApp PWA, Blazor WebAssembly)\nClienteConsulta" as app
+  rectangle "Codex20.Painel\n(tela Perguntar)" as painel
+  frame "Codex20.Api" as frameApi {
+    rectangle "Recepção da pergunta\n(ConsultasController,\nServicoConsulta: RRF, 8 trechos)" as api
+  }
+  frame "Codex20.Core: PipelineRag.ResponderAsync orquestra" {
+    rectangle "Busca\n(IEstrategiaBusca: cosseno, BM25 ou RRF)" as busca
+    rectangle "Montagem do prompt\n(MontadorPrompt)" as prompt
+    frame "Codex20.Geracao" {
+      rectangle "Geração da resposta\n(GeradorRespostaAzureOpenAI)" as llm
+    }
+    rectangle "Leitura das citações\n(LeitorCitacoes)" as citacoes
+  }
+  cloud "Azure OpenAI\n(chat)" as aoaiChat
+  frame "Codex20.Api " as frameApi2 {
+    rectangle "Conversão da resposta\n(ConversorResposta: fontes com\nlivro e página, sem o texto dos trechos)" as conversor
+  }
+  rectangle "Resposta com fontes no webApp\n(RespostaConsulta: texto com\ncitações e lista de fontes)" as resposta
+}
+
+pdf --> extracao
+extracao -left-> di
+extracao --> md : grava
+md --> revisao
+revisao --> mdRevisado : grava
+mdRevisado --> chunking
+chunking --> json : grava (ArquivoChunks)
+json --> embeddings
+json --> bm25
+embeddings -left-> aoaiEmb
+embeddings --> db : grava vetores
+bm25 --> db : grava índice
+
+pdf -[hidden]right- app
+app --> api : POST /api/consultas\n(PedidoConsulta)
+api --> busca : pergunta
+painel --> busca : pergunta
+busca <-- db : lê
+busca --> prompt : trechos\n(List<ResultadoBusca>)
+prompt --> llm : instruções\n+ mensagem
+llm -right-> aoaiChat
+llm --> citacoes : texto com [n]
+citacoes --> conversor : RespostaGerada\n(o Painel a exibe direto)
+conversor --> resposta : RespostaConsulta\n(JSON)
+@enduml

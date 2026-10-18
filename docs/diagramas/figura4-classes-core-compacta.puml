@@ -1,0 +1,168 @@
+@startuml figura4-classes-core-compacta
+' Figura 4 (versão compacta) – Diagrama de classes do Codex20.Core (ver NOTAS.md)
+' Mesmo conteúdo da figura4-classes-core.puml, reorganizado em duas colunas:
+' consulta (Geracao → Busca → Embeddings) à esquerda e Chunking à direita.
+' As implementações concretas ficam logo abaixo da interface, com o projeto
+' como estereótipo, em vez de um pacote separado no rodapé.
+' Nas relações, a ordem "Interface <|.. Classe" só controla o layout (interface acima).
+!pragma layout smetana
+set separator none
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam nodesep 14
+skinparam ranksep 22
+skinparam class<<Codex20.Embeddings>> {
+  BackgroundColor #FFFFFF
+}
+skinparam class<<Codex20.Geracao>> {
+  BackgroundColor #FFFFFF
+}
+hide empty members
+hide circle
+
+package "Codex20.Core.Geracao" as Geracao {
+  class PipelineRag {
+    -gerador: IGeradorResposta
+    +ResponderAsync(busca, pedido): Task<RespostaGerada>
+  }
+  class MontadorPrompt <<static>> {
+    +{static} Instrucoes: string
+    +{static} MontarMensagem(pergunta, trechos): string
+  }
+  class LeitorCitacoes <<static>> {
+    +{static} Extrair(texto): List<int>
+    +{static} Segmentar(texto): List<SegmentoResposta>
+  }
+  interface IGeradorResposta <<interface>> {
+    +Modelo: string
+    +GerarAsync(instrucoes, mensagem): Task<ConclusaoModelo>
+  }
+}
+
+package "Codex20.Core.Busca" as Busca {
+  interface IEstrategiaBusca <<interface>> {
+    +Nome: string
+    +IsDisponivel: bool
+    +BuscarAsync(pedido): Task<RespostaBusca>
+  }
+  class EstrategiaBuscaCosseno {
+    -armazenamento: IArmazenamentoVetorial
+    -gerador: IGeradorEmbedding?
+  }
+  class EstrategiaBuscaBm25 {
+    -indice: IIndiceTextual
+  }
+  class EstrategiaBuscaRrf {
+    -KRrf: int = 60
+    -CandidatosMinimos: int = 50
+    -pernas: List<IEstrategiaBusca>
+  }
+  interface IIndiceTextual <<interface>> {
+    +IndexarAsync(chunks): Task<int>
+    +BuscarTextoAsync(consulta, qtd): Task<List<ResultadoBusca>>
+  }
+}
+
+package "Codex20.Core.Embeddings" as Embeddings {
+  interface IGeradorEmbedding <<interface>> {
+    +Modelo: string
+    +Dimensoes: int
+    +GerarEmLoteAsync(textos): Task<List<float[]>>
+  }
+  interface IArmazenamentoVetorial <<interface>> {
+    +SalvarAsync(chunks, embeddings): Task<int>
+    +BuscarSimilaresAsync(vetor, qtd): Task<List<ResultadoBusca>>
+  }
+}
+
+package "Codex20.Core.Chunking" as Chunking {
+  interface IChunkingStrategy <<interface>> {
+    +Chunk(blocos, livro): List<Chunk>
+  }
+  class ChunkingStrategyPorEntidade {
+    -_regras: IRegrasEntidade
+    -_fallback: ChunkingStrategyParagrafoToken
+    +{static} ParaManualDosMonstros(fallback)
+    +{static} ParaLivroDoJogador(fallback)
+    +{static} ParaGuiaDoMestre(fallback)
+    +Chunk(blocos, livro): List<Chunk>
+  }
+  class ChunkingStrategyParagrafoToken {
+    -_maxTokensPorChunk: int = 512
+    -_tokensSobreposicao: int = 64
+    +Chunk(blocos, livro): List<Chunk>
+    +ChunkFaixa(blocos, inicio, fim, ...): List<Chunk>
+  }
+  interface IRegrasEntidade <<interface>> {
+    +MaxTokensPorChunk: int
+    +ResolverSecao(blocos): (int, int)
+    +IsAncora(blocos, indice): bool
+    +AcharInicioCabecalho(blocos, ancora): int
+    +ExtrairNomeEntidade(blocos, ...): string?
+  }
+  class RegrasEntidadeMonstro <<internal>>
+  class RegrasEntidadeMagia <<internal>>
+  class RegrasEntidadeItemMagico <<internal>>
+  class Chunk {
+    +Id: Guid {SHA-256 de Livro + Texto}
+    +Texto: string
+    +NomeEntidade: string?
+    +PaginaInicio: int?
+    +PaginaFim: int?
+    +Livro: string
+    +IsFallback: bool
+  }
+}
+
+' Implementações concretas (fora do Core), logo abaixo da interface
+class IndiceTextualFts5 <<Codex20.Embeddings>>
+class GeradorRespostaAzureOpenAI <<Codex20.Geracao>>
+class GeradorEmbeddingAzureOpenAI <<Codex20.Embeddings>>
+class ArmazenamentoVetorialSqlite <<Codex20.Embeddings>> {
+  +Dimensoes: int = 3072
+}
+
+' --- Geracao ---
+PipelineRag ..> MontadorPrompt : usa
+PipelineRag ..> LeitorCitacoes : usa
+PipelineRag o-- "1" IGeradorResposta : gerador
+PipelineRag ...> IEstrategiaBusca : parâmetro
+IGeradorResposta <|.. GeradorRespostaAzureOpenAI
+MontadorPrompt ..> Chunk : lê livro e página
+
+' --- Busca ---
+IEstrategiaBusca <|.. EstrategiaBuscaCosseno
+IEstrategiaBusca <|.. EstrategiaBuscaBm25
+IEstrategiaBusca <|.. EstrategiaBuscaRrf
+IEstrategiaBusca "*" --o EstrategiaBuscaRrf : pernas
+EstrategiaBuscaCosseno o-- "1" IArmazenamentoVetorial
+EstrategiaBuscaCosseno o-- "0..1" IGeradorEmbedding
+EstrategiaBuscaBm25 o-- "1" IIndiceTextual
+IIndiceTextual <|.. IndiceTextualFts5
+
+' --- Embeddings ---
+IGeradorEmbedding <|.. GeradorEmbeddingAzureOpenAI
+IArmazenamentoVetorial <|.. ArmazenamentoVetorialSqlite
+
+' --- Posicionamento (ligações ocultas, só controlam o layout) ---
+' Coluna da direita: Busca e, embaixo, Embeddings.
+' Coluna da esquerda: Geracao e, embaixo, Chunking.
+' O "...>" da relação "parâmetro" também desce Busca um nível, para ela não
+' ficar ao lado de Geracao.
+IIndiceTextual -[hidden]-> IGeradorEmbedding
+GeradorRespostaAzureOpenAI -[hidden]-> IChunkingStrategy
+
+' --- Chunking ---
+IChunkingStrategy <|.. ChunkingStrategyPorEntidade
+IChunkingStrategy <|.. ChunkingStrategyParagrafoToken
+ChunkingStrategyPorEntidade *-- "1" IRegrasEntidade : regras
+ChunkingStrategyPorEntidade o-- "1" ChunkingStrategyParagrafoToken : fallback
+IRegrasEntidade <|.. RegrasEntidadeMonstro
+IRegrasEntidade <|.. RegrasEntidadeMagia
+IRegrasEntidade <|.. RegrasEntidadeItemMagico
+ChunkingStrategyPorEntidade ..> Chunk : <<cria>>
+ChunkingStrategyParagrafoToken ..> Chunk : <<cria>>
+@enduml

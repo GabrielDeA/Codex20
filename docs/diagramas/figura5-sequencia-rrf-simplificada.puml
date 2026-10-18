@@ -1,0 +1,60 @@
+@startuml figura5-sequencia-rrf-simplificada
+' Figura 5 (versão simplificada) – Sequência de uma consulta com a estratégia RRF (ver NOTAS.md)
+' Versão enxuta da figura5-sequencia-rrf.puml: a Api vira um participante só,
+' cada perna da busca esconde o próprio acesso ao banco e à API de embeddings,
+' MontadorPrompt e LeitorCitacoes viram passos do PipelineRag, e o ramo sem
+' trechos (alt) saiu.
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+skinparam maxMessageSize 160
+hide footbox
+
+actor "Usuário" as usuario
+participant ":ClienteConsulta\n(Codex20.App)" as app
+participant "Codex20.Api" as api
+participant ":PipelineRag" as pipeline
+participant ":Estrategia\nBuscaRrf" as rrf
+participant ":Estrategia\nBuscaCosseno" as cosseno
+participant ":Estrategia\nBuscaBm25" as bm25
+participant ":GeradorResposta\nAzureOpenAI" as gerResp
+
+usuario -> app : pergunta
+activate app
+app -> api : POST /api/consultas
+activate api
+api -> pipeline : ResponderAsync(rrf, pergunta)
+activate pipeline
+pipeline -> rrf : BuscarAsync(8 trechos)
+activate rrf
+
+rrf -> cosseno : BuscarAsync(50)
+activate cosseno
+cosseno --> rrf : ranking por similaridade\n(embedding + vec0)
+deactivate cosseno
+
+rrf -> bm25 : BuscarAsync(50)
+activate bm25
+bm25 --> rrf : ranking por termos (FTS5)
+deactivate bm25
+
+rrf -> rrf : funde os rankings:\nΣ 1/(60 + posição)
+rrf --> pipeline : 8 trechos
+deactivate rrf
+
+pipeline -> pipeline : monta o prompt\ncom os trechos [1..8]
+pipeline -> gerResp : GerarAsync(instruções, mensagem)
+activate gerResp
+gerResp --> pipeline : texto com citações [n]
+deactivate gerResp
+pipeline -> pipeline : lê as citações
+pipeline --> api : RespostaGerada
+deactivate pipeline
+
+api -> api : converte em RespostaConsulta\n(só as fontes citadas)
+api --> app : RespostaConsulta (JSON)
+deactivate api
+app --> usuario : resposta com fontes\n(livro e página)
+deactivate app
+@enduml
