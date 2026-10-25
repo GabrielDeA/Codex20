@@ -29,6 +29,24 @@ public static class MontadorPrompt
         """;
 
     /// <summary>
+    /// A linha de base da comparação com × sem RAG: mesmo modelo, mesmas regras de forma e de recusa,
+    /// só que sem trechos. Por isso as regras acompanham as de <see cref="Instrucoes"/> uma a uma —
+    /// a diferença entre as respostas tem de vir dos trechos, não de um prompt mais exigente. A fonte
+    /// vai entre parênteses num formato fixo para a avaliação conseguir extrair livro e página.
+    /// </summary>
+    public const string InstrucoesSemRag =
+        """
+        Você responde perguntas sobre Dungeons & Dragons 5ª edição considerando o Livro do Jogador, o Guia do Mestre e o Manual dos Monstros, na edição em português.
+
+        Regras:
+        - Você não recebe trechos dos livros: responda com o seu próprio conhecimento sobre esses três livros.
+        - Se não sabe a resposta, ou se ela não está nesses livros, diga que não encontrou isso nos livros. Se sabe só parte, responda essa parte e diga o que faltou.
+        - Indique de onde veio cada informação com o livro e a página entre parênteses, logo depois da informação: (Livro do Jogador, p. 95). Se não lembra a página, cite só o livro: (Livro do Jogador). Não invente página.
+        - Responda em português, de forma direta. Use os termos de jogo como aparecem na edição em português (nomes de magias, criaturas, atributos e condições).
+        - Escreva em texto simples, sem Markdown: nada de negrito, títulos ou tabelas. Listas com hífen são permitidas.
+        """;
+
+    /// <summary>
     /// Trechos primeiro, pergunta no fim: com o contexto longo antes, a pergunta fica mais perto de
     /// onde o modelo começa a escrever. O número de cada trecho é a posição dele na lista + 1, e é
     /// isso que as citações [n] da resposta referenciam.
@@ -51,6 +69,15 @@ public static class MontadorPrompt
         mensagem.Append(pergunta);
 
         return mensagem.ToString();
+    }
+
+    /// <summary>
+    /// Só a pergunta, no mesmo formato do fim de <see cref="MontarMensagem"/>: a única diferença para
+    /// o modelo é a falta dos trechos.
+    /// </summary>
+    public static string MontarMensagemSemRag(string pergunta)
+    {
+        return "Pergunta: " + pergunta;
     }
 
     /// <summary>"Manual dos Monstros, p. 12 — Aarakocra": de onde o modelo tira o que cita.</summary>

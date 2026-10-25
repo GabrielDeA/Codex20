@@ -29,7 +29,10 @@ public class RespostaGerada
     /// </summary>
     public List<int> CitacoesInexistentes { get; init; } = new();
 
-    /// <summary>A mensagem exata enviada (as instruções são o <see cref="MontadorPrompt.Instrucoes"/>).</summary>
+    /// <summary>
+    /// A mensagem exata enviada. As instruções são o <see cref="MontadorPrompt.Instrucoes"/>, ou o
+    /// <see cref="MontadorPrompt.InstrucoesSemRag"/> quando <see cref="IsSemRag"/>.
+    /// </summary>
     public string Mensagem { get; init; } = string.Empty;
 
     public int TokensEntrada { get; init; }
@@ -46,6 +49,9 @@ public class RespostaGerada
 
     /// <summary>Recado para a tela: modelo não chamado, resposta cortada, citação inexistente.</summary>
     public string? Observacao { get; init; }
+
+    /// <summary>Resposta da linha de base (<see cref="PipelineRag.ResponderSemRagAsync"/>): sem busca nem trechos.</summary>
+    public bool IsSemRag => NomeEstrategiaBusca == PipelineRag.NomeSemRag;
 
     public bool IsCitado(int numero)
     {

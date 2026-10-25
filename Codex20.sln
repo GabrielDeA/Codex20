@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex20.Contratos", "Codex2
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex20.App", "Codex20.App\Codex20.App.csproj", "{30B00A1E-7B88-40F7-9F2B-05527F5CC52F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Codex20.Avaliacao", "Codex20.Avaliacao\Codex20.Avaliacao.csproj", "{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -153,6 +155,18 @@ Global
 		{30B00A1E-7B88-40F7-9F2B-05527F5CC52F}.Release|x64.Build.0 = Release|Any CPU
 		{30B00A1E-7B88-40F7-9F2B-05527F5CC52F}.Release|x86.ActiveCfg = Release|Any CPU
 		{30B00A1E-7B88-40F7-9F2B-05527F5CC52F}.Release|x86.Build.0 = Release|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Debug|x64.Build.0 = Debug|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Debug|x86.Build.0 = Debug|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Release|x64.ActiveCfg = Release|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Release|x64.Build.0 = Release|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Release|x86.ActiveCfg = Release|Any CPU
+		{8369E66C-E4CA-44E5-BBB6-50ABFFE0137A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

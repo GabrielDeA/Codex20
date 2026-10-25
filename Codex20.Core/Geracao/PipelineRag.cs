@@ -9,6 +9,12 @@ namespace Codex20.Core.Geracao;
 /// </summary>
 public class PipelineRag
 {
+    /// <summary>
+    /// Vai em <see cref="RespostaGerada.NomeEstrategiaBusca"/> da resposta sem RAG, no lugar do nome de
+    /// uma estratégia: nenhuma busca rodou.
+    /// </summary>
+    public const string NomeSemRag = "sem-rag";
+
     private readonly IGeradorResposta gerador;
 
     public PipelineRag(IGeradorResposta gerador)
@@ -88,6 +94,36 @@ public class PipelineRag
             DuracaoGeracao = duracaoGeracao,
             IsCortada = conclusao.IsCortada,
             Observacao = MontarObservacao(conclusao, inexistentes, resultadoBusca.Observacao),
+        };
+    }
+
+    /// <summary>
+    /// A linha de base da avaliação: o mesmo gerador (modelo, esforço de raciocínio e limite de
+    /// tokens), sem busca e sem trechos. O modelo responde com o que sabe e indica livro e página entre
+    /// parênteses; não há citação [n] a conferir, então <see cref="RespostaGerada.Trechos"/> e
+    /// <see cref="RespostaGerada.Citacoes"/> voltam vazias.
+    /// </summary>
+    public async Task<RespostaGerada> ResponderSemRagAsync(PedidoResposta pedido)
+    {
+        string mensagem = MontadorPrompt.MontarMensagemSemRag(pedido.Pergunta);
+
+        var relogio = Stopwatch.StartNew();
+        ConclusaoModelo conclusao = await gerador.GerarAsync(MontadorPrompt.InstrucoesSemRag, mensagem);
+        TimeSpan duracaoGeracao = relogio.Elapsed;
+
+        return new RespostaGerada
+        {
+            Pergunta = pedido.Pergunta,
+            Texto = conclusao.Texto,
+            Modelo = gerador.Modelo,
+            NomeEstrategiaBusca = NomeSemRag,
+            Mensagem = mensagem,
+            TokensEntrada = conclusao.TokensEntrada,
+            TokensSaida = conclusao.TokensSaida,
+            TokensRaciocinio = conclusao.TokensRaciocinio,
+            DuracaoGeracao = duracaoGeracao,
+            IsCortada = conclusao.IsCortada,
+            Observacao = MontarObservacao(conclusao, new List<int>(), null),
         };
     }
 
