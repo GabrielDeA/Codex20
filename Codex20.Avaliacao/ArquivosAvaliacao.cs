@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Codex20.Avaliacao.Registros;
 using Codex20.Core.Chunking;
 
 namespace Codex20.Avaliacao;
@@ -78,6 +79,46 @@ public static class ArquivosAvaliacao
         }
 
         return chunks;
+    }
+
+    /// <summary>O JSONL mais recente da pasta de resultados; <c>null</c> se não há nenhum.</summary>
+    public static string? JsonlMaisRecente()
+    {
+        if (!Directory.Exists(PastaResultados()))
+        {
+            return null;
+        }
+
+        string? maisRecente = null;
+        foreach (string caminho in Directory.GetFiles(PastaResultados(), "*.jsonl"))
+        {
+            if (maisRecente is null || File.GetLastWriteTime(caminho) > File.GetLastWriteTime(maisRecente))
+            {
+                maisRecente = caminho;
+            }
+        }
+
+        return maisRecente;
+    }
+
+    public static List<RegistroPergunta> LerRegistros(string caminhoJsonl)
+    {
+        var registros = new List<RegistroPergunta>();
+        foreach (string linha in File.ReadAllLines(caminhoJsonl))
+        {
+            if (string.IsNullOrWhiteSpace(linha))
+            {
+                continue;
+            }
+
+            RegistroPergunta? registro = JsonSerializer.Deserialize<RegistroPergunta>(linha, OpcoesJsonl);
+            if (registro is not null)
+            {
+                registros.Add(registro);
+            }
+        }
+
+        return registros;
     }
 
     /// <summary>Ids das perguntas já gravadas num JSONL, para o <c>--continuar</c> pular.</summary>

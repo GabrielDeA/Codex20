@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Codex20.Avaliacao;
 using Codex20.Avaliacao.Gabarito;
+using Codex20.Avaliacao.Metricas;
 using Codex20.Avaliacao.Registros;
 using Codex20.Core.Busca;
 using Codex20.Core.Chunking;
@@ -25,6 +26,8 @@ if (args.Length < 1)
           rodar                 roda a avaliação e grava Codex20.Avaliacao/Resultados/avaliacao-<data>.jsonl
           pagina <livro> <n>    lista os chunks de uma página, com o Id (para montar o gabarito)
           localizar "texto"     lista os chunks que contêm o texto, sem ranquear (para montar o gabarito)
+          metricas [ARQUIVO]    calcula Hit@k, MRR, P/R/F1 e desempenho de um JSONL (default: o mais recente)
+                                e grava <arquivo>.metricas.md ao lado dele; não chama a API
 
         Opções:
           --perguntas CAMINHO   CSV de perguntas (default Codex20.Avaliacao/Dados/perguntas.csv)
@@ -39,6 +42,32 @@ if (args.Length < 1)
 
 string comando = args[0].ToLowerInvariant();
 string caminhoPerguntas = LerTexto(args, "--perguntas") ?? ArquivosAvaliacao.CaminhoPerguntasPadrao();
+
+if (comando == "metricas")
+{
+    string? caminhoJsonl = args.Length > 1 ? Path.GetFullPath(args[1]) : ArquivosAvaliacao.JsonlMaisRecente();
+    if (caminhoJsonl is null || !File.Exists(caminhoJsonl))
+    {
+        Console.Error.WriteLine($"JSONL não encontrado: {caminhoJsonl ?? ArquivosAvaliacao.PastaResultados()}");
+        return 1;
+    }
+
+    MetadadosAvaliacao? metadados = null;
+    string caminhoMetadados = ArquivosAvaliacao.CaminhoMeta(caminhoJsonl);
+    if (File.Exists(caminhoMetadados))
+    {
+        metadados = JsonSerializer.Deserialize<MetadadosAvaliacao>(File.ReadAllText(caminhoMetadados));
+    }
+
+    var relatorio = new RelatorioMetricas(ArquivosAvaliacao.LerRegistros(caminhoJsonl));
+    string markdown = relatorio.Montar(Path.GetFileName(caminhoJsonl), metadados);
+    string caminhoRelatorio = Path.ChangeExtension(caminhoJsonl, ".metricas.md");
+    File.WriteAllText(caminhoRelatorio, markdown, new UTF8Encoding(false));
+
+    Console.WriteLine(markdown);
+    Console.WriteLine($"[metricas] gravado em {caminhoRelatorio}");
+    return 0;
+}
 
 List<Chunk> chunks;
 try

@@ -9,7 +9,7 @@ para cada pergunta do CSV:
   sem RAG             → PipelineRag.ResponderSemRagAsync: mesmo modelo, sem busca e sem trechos
 ```
 
-As métricas (Hit@k, MRR, P/R/F1) são calculadas depois, a partir do JSONL.
+As métricas (Hit@k, MRR, P/R/F1) são calculadas depois, a partir do JSONL, pelo comando `metricas`.
 
 ## O CSV de perguntas
 
@@ -85,6 +85,25 @@ Grava em `Codex20.Avaliacao/Resultados/`:
   cortou.
 
 O texto dos chunks não vai no JSONL: ele está no `*.chunks.json`, pelo Id.
+
+## Métricas
+
+```bash
+dotnet run --project Codex20.Avaliacao -- metricas
+```
+
+Lê o JSONL mais recente (ou o que for passado como argumento), não chama a API e grava
+`avaliacao-<data>.metricas.md` ao lado dele, com as tabelas em formato de colar no texto:
+
+- Recuperação: Hit@1/3/5/8 e MRR@8 por estratégia, no geral e por tipo de pergunta, e o teste
+  de McNemar exato entre cada par de estratégias.
+- Fontes: P/R/F1 das citações por chunk (com RAG), por página e por livro (com × sem RAG). Sem
+  citação nenhuma, P, R e F1 contam como 0.
+- Desempenho: tempo de busca por estratégia, tempo de geração e tokens por modo.
+- Por pergunta: posições, se a referência estava nos trechos da geração e se foi citada (a base
+  da análise de erros).
+
+As perguntas sem resposta nos livros ficam fora das métricas automáticas: a recusa é julgada à mão.
 
 **Fontes sem RAG.** O prompt pede `(Livro do Jogador, p. 95)` ou só `(Livro do Jogador)` quando o
 modelo não lembra a página. `PaginasCitadas` e `LivrosCitados` saem desse texto por regex; confira
